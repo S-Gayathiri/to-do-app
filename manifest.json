@@ -1,0 +1,58 @@
+{
+  "name": "TaskFlow - Offline Eisenhower Matrix",
+  "short_name": "TaskFlow",
+  "description": "Mobile-first offline PWA with Eisenhower Matrix, instant quick-capture, and Google Sheets cloud sync.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick Capture Task",
+      "short_name": "New Task",
+      "description": "Directly open fast task entry",
+      "url": "./index.html?action=new",
+      "icons": [{ "src": "./icon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Eisenhower Matrix",
+      "short_name": "Matrix",
+      "description": "View 4-quadrant priority matrix",
+      "url": "./index.html?view=matrix",
+      "icons": [{ "src": "./icon.svg", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
+}

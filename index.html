@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>TaskFlow - Offline Eisenhower Matrix PWA</title>
+  
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="description" content="Mobile-first offline Eisenhower to-do PWA with instant IndexedDB storage and Google Sheets sync.">
+  <meta name="theme-color" content="#090d16">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TaskFlow">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./icon.svg">
+
+  <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+  <!-- Core Libraries for Offline-First IndexedDB and Natural Language Processing -->
+  <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chrono-node@2.7.5/dist/bundle.min.js"></script>
+
+  <!-- Application Stylesheet -->
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    
+    <!-- Top Header: Multi-Profile Switcher, Brand, & Live Sync Status -->
+    <header class="app-header">
+      <div class="header-left">
+        <!-- Multi-Profile Switcher Trigger -->
+        <div class="profile-dropdown-container">
+          <button id="profile-btn" class="profile-btn" aria-label="Switch Profile" aria-haspopup="true">
+            <span class="profile-avatar" id="current-profile-avatar">S</span>
+            <span class="profile-name" id="current-profile-name">Sarah</span>
+            <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          
+          <!-- Dropdown Menu -->
+          <div id="profile-menu" class="dropdown-menu hidden" role="menu">
+            <div class="dropdown-header">Switch Profile</div>
+            <div id="profile-list" class="profile-list">
+              <!-- Populated dynamically via app.js -->
+            </div>
+            <div class="dropdown-divider"></div>
+            <button id="btn-add-profile-modal" class="dropdown-item add-profile-action">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>New Profile</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <h1 class="brand-title">Task<span>Flow</span></h1>
+      </div>
+
+      <div class="header-right">
+        <!-- Sync Status Indicator Pill -->
+        <button id="sync-status-badge" class="sync-badge online" title="IndexedDB 0ms Local / Google Sheets Sync" aria-label="Sync Status">
+          <span class="sync-dot"></span>
+          <span class="sync-text" id="sync-status-text">Online</span>
+        </button>
+
+        <!-- Quick Cadence / Settings Trigger -->
+        <button id="btn-open-settings" class="icon-btn" aria-label="Settings & Sync Configuration">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main View Switcher Container -->
+    <main id="main-content" class="main-content">
+      
+      <!-- VIEW 1: Category Cards View -->
+      <section id="view-categories" class="view-panel active">
+        <!-- Quick Stats & Search Bar -->
+        <div class="view-subbar">
+          <div class="filter-chips">
+            <button class="filter-chip active" data-filter="all">All (<span id="count-all">0</span>)</button>
+            <button class="filter-chip" data-filter="today">Today (<span id="count-today">0</span>)</button>
+            <button class="filter-chip" data-filter="urgent">⚡ Urgent (<span id="count-urgent">0</span>)</button>
+            <button class="filter-chip" data-filter="done">Completed (<span id="count-done">0</span>)</button>
+          </div>
+        </div>
+
+        <!-- Category Container Cards Grid -->
+        <div id="category-cards-grid" class="category-cards-grid">
+          <!-- Rendered dynamically by app.js: Work, Personal, Fitness, etc. -->
+        </div>
+      </section>
+
+      <!-- VIEW 2: Eisenhower 2x2 Matrix View -->
+      <section id="view-matrix" class="view-panel">
+        <div class="matrix-header">
+          <div class="matrix-legend">
+            <span class="legend-badge q1-badge">Q1: Crisis</span>
+            <span class="legend-badge q2-badge">Q2: Schedule</span>
+            <span class="legend-badge q3-badge">Q3: Delegate</span>
+            <span class="legend-badge q4-badge">Q4: Backlog</span>
+          </div>
+        </div>
+
+        <!-- 2x2 Eisenhower Quadrants Grid -->
+        <div class="matrix-grid">
+          
+          <!-- Q1: Urgent & Important (Crisis / Do First) -->
+          <div class="quadrant-card q1" id="quadrant-q1" data-quadrant="Q1">
+            <div class="quadrant-header">
+              <div class="q-title-row">
+                <span class="q-icon">⚡⭐</span>
+                <h3>Q1: Crisis / Do First</h3>
+              </div>
+              <span class="q-meta">Urgent & Important</span>
+              <span class="q-count" id="q1-count">0</span>
+            </div>
+            <div class="quadrant-task-list" id="q1-list">
+              <!-- Task items for Q1 -->
+            </div>
+          </div>
+
+          <!-- Q2: Not Urgent & Important (Schedule / Focus) -->
+          <div class="quadrant-card q2" id="quadrant-q2" data-quadrant="Q2">
+            <div class="quadrant-header">
+              <div class="q-title-row">
+                <span class="q-icon">⭐</span>
+                <h3>Q2: Schedule / Strategic</h3>
+              </div>
+              <span class="q-meta">Not Urgent & Important</span>
+              <span class="q-count" id="q2-count">0</span>
+            </div>
+            <div class="quadrant-task-list" id="q2-list">
+              <!-- Task items for Q2 -->
+            </div>
+          </div>
+
+          <!-- Q3: Urgent & Not Important (Delegate / Limit) -->
+          <div class="quadrant-card q3" id="quadrant-q3" data-quadrant="Q3">
+            <div class="quadrant-header">
+              <div class="q-title-row">
+                <span class="q-icon">⚡</span>
+                <h3>Q3: Delegate / Quick</h3>
+              </div>
+              <span class="q-meta">Urgent & Not Important</span>
+              <span class="q-count" id="q3-count">0</span>
+            </div>
+            <div class="quadrant-task-list" id="q3-list">
+              <!-- Task items for Q3 -->
+            </div>
+          </div>
+
+          <!-- Q4: Not Urgent & Not Important (Backlog / Drop) -->
+          <div class="quadrant-card q4" id="quadrant-q4" data-quadrant="Q4">
+            <div class="quadrant-header">
+              <div class="q-title-row">
+                <span class="q-icon">🌱</span>
+                <h3>Q4: Backlog / Low Priority</h3>
+              </div>
+              <span class="q-meta">Not Urgent & Not Important</span>
+              <span class="q-count" id="q4-count">0</span>
+            </div>
+            <div class="quadrant-task-list" id="q4-list">
+              <!-- Task items for Q4 -->
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- VIEW 3: Daily Cadence & Rollover View -->
+      <section id="view-cadence" class="view-panel">
+        <div class="cadence-container">
+          <!-- Morning Briefing Card -->
+          <div class="cadence-card morning-card">
+            <div class="cadence-header">
+              <span class="cadence-icon">🌅</span>
+              <div>
+                <h2>Morning Focus Briefing</h2>
+                <p class="cadence-subtitle">Prioritized roadmap for today</p>
+              </div>
+            </div>
+            <div id="morning-tasks-list" class="cadence-tasks">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Evening Rollover Card -->
+          <div class="cadence-card evening-card">
+            <div class="cadence-header">
+              <span class="cadence-icon">🌙</span>
+              <div>
+                <h2>Evening Rollover Review</h2>
+                <p class="cadence-subtitle">Rollover unfinished tasks with 1 tap</p>
+              </div>
+            </div>
+            <div id="evening-rollover-list" class="cadence-tasks">
+              <!-- Dynamically populated -->
+            </div>
+            <div class="rollover-actions" id="rollover-action-bar">
+              <button id="btn-rollover-all" class="btn btn-primary">
+                <span>⏩ Rollover All to Tomorrow</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Tactile Quick-Capture Strip (Anchored above virtual keyboard & navigation) -->
+    <div class="quick-capture-dock" id="quick-capture-dock">
+      
+      <!-- Live NLP Detection Badge Pill -->
+      <div id="nlp-indicator" class="nlp-indicator hidden">
+        <span class="nlp-icon">🤖</span>
+        <span id="nlp-text" class="nlp-badge-text">Detected: Tomorrow at 3:00 PM</span>
+        <button id="nlp-clear-btn" class="nlp-clear" aria-label="Dismiss parsed date">✕</button>
+      </div>
+
+      <form id="quick-capture-form" class="quick-capture-form" onsubmit="return false;">
+        
+        <!-- Primary Text Input & Fast Save Action -->
+        <div class="input-row">
+          <input 
+            type="text" 
+            id="task-title-input" 
+            class="task-input" 
+            placeholder="Quick capture task... (e.g., 'Review slides tomorrow 4pm')" 
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="done"
+            required
+          />
+          <button type="submit" id="btn-save-task" class="btn-save-task" aria-label="Save Task (Enter)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Tactile Control Tray: Eisenhower 2-Pill Toggles, Category Chips, Date/Time Controls -->
+        <div class="capture-controls-tray">
+          
+          <!-- Eisenhower 2-Pill Toggles & Live Quadrant Indicator -->
+          <div class="control-group eisenhower-group">
+            <button type="button" id="toggle-urgent" class="pill-toggle urgent-toggle" data-active="false" aria-pressed="false">
+              <span class="pill-icon">⚡</span> Urgent
+            </button>
+            <button type="button" id="toggle-important" class="pill-toggle important-toggle" data-active="false" aria-pressed="false">
+              <span class="pill-icon">⭐</span> Important
+            </button>
+            <span id="live-quadrant-badge" class="live-quadrant-pill q4">Q4: Backlog</span>
+          </div>
+
+          <div class="tray-divider"></div>
+
+          <!-- Category Chips Bar -->
+          <div class="control-group category-group">
+            <span class="tray-label">Category:</span>
+            <div class="category-chips-scroll" id="category-chips-list">
+              <button type="button" class="chip active" data-category="Personal">Personal</button>
+              <button type="button" class="chip" data-category="Work">Work</button>
+              <button type="button" class="chip" data-category="Fitness">Fitness</button>
+              <button type="button" class="chip" data-category="Finance">Finance</button>
+              <button type="button" class="chip" data-category="Ideas">Ideas</button>
+              <button type="button" class="chip chip-add" id="btn-add-custom-category">+ New</button>
+            </div>
+          </div>
+
+          <div class="tray-divider"></div>
+
+          <!-- Date & Time Controls -->
+          <div class="control-group datetime-group">
+            <span class="tray-label">Due:</span>
+            <div class="quick-date-chips">
+              <button type="button" class="date-chip" data-date="today">Today</button>
+              <button type="button" class="date-chip" data-date="tomorrow">Tomorrow</button>
+              
+              <!-- Date Picker Trigger & Hidden Native Input -->
+              <label class="date-picker-chip" for="task-due-date">
+                <span id="date-chip-label">📅 Pick</span>
+                <input type="date" id="task-due-date" class="native-date-input" />
+              </label>
+
+              <!-- Native Time Input -->
+              <label class="time-picker-chip" for="task-due-time">
+                <span>⏰</span>
+                <input type="time" id="task-due-time" class="native-time-input" />
+              </label>
+            </div>
+          </div>
+
+        </div>
+      </form>
+    </div>
+
+    <!-- Persistent Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-target="view-categories" id="nav-categories">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        <span>Categories</span>
+      </button>
+
+      <button class="nav-item" data-target="view-matrix" id="nav-matrix">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="12" y1="3" x2="12" y2="21"></line>
+        </svg>
+        <span>Matrix</span>
+      </button>
+
+      <button class="nav-item" data-target="view-cadence" id="nav-cadence">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>Cadence</span>
+      </button>
+
+      <button class="nav-item" id="nav-sync-modal">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10"></polyline>
+          <polyline points="23 20 23 14 17 14"></polyline>
+          <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+        </svg>
+        <span>Sync</span>
+      </button>
+    </nav>
+
+    <!-- MODAL: Settings & Google Sheets Sync Setup -->
+    <div id="modal-settings" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="settings-title">Sync & Profile Settings</h2>
+          <button class="modal-close-btn" id="btn-close-settings" aria-label="Close Settings">✕</button>
+        </div>
+        
+        <div class="modal-body">
+          <!-- Google Apps Script URL Config -->
+          <div class="form-section">
+            <label class="form-label" for="setting-gas-url">Google Apps Script Web App URL</label>
+            <p class="form-help">Deploy your <code>Code.gs</code> as Web App ("Execute as Me", "Who has access: Anyone") and paste the exec URL below.</p>
+            <input 
+              type="url" 
+              id="setting-gas-url" 
+              class="form-input" 
+              placeholder="https://script.google.com/macros/s/.../exec"
+              spellcheck="false"
+            />
+            <div class="btn-row">
+              <button id="btn-test-gas-sync" class="btn btn-primary">
+                <span>⚡ Test & Force Sync</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Notification Cadence Settings -->
+          <div class="form-section">
+            <label class="form-label">Notification Times (<span id="settings-profile-label">Current Profile</span>)</label>
+            <div class="time-inputs-row">
+              <div class="time-input-group">
+                <label for="setting-digest-time">🌅 Morning Digest</label>
+                <input type="time" id="setting-digest-time" class="form-input time-ctrl" value="08:00" />
+              </div>
+              <div class="time-input-group">
+                <label for="setting-evening-time">🌙 Evening Rollover</label>
+                <input type="time" id="setting-evening-time" class="form-input time-ctrl" value="20:00" />
+              </div>
+            </div>
+            <button id="btn-enable-notifications" class="btn btn-secondary">
+              <span>🔔 Request Notification Permission</span>
+            </button>
+          </div>
+
+          <!-- Local IndexedDB Status -->
+          <div class="form-section db-stats-section">
+            <label class="form-label">Local Offline Database (Dexie.js)</label>
+            <div class="db-stats-grid">
+              <div class="stat-box">
+                <span class="stat-val" id="stat-local-tasks">0</span>
+                <span class="stat-lbl">Local Tasks</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-val" id="stat-pending-sync">0</span>
+                <span class="stat-lbl">Queued Mutations</span>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="btn-export-backup" class="btn btn-secondary">💾 Backup JSON</button>
+              <button id="btn-clear-completed" class="btn btn-danger">🧹 Purge Completed</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-save-settings" class="btn btn-primary full-width">Save Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: Add New Profile -->
+    <div id="modal-new-profile" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="new-profile-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="new-profile-title">Create Profile</h2>
+          <button class="modal-close-btn" id="btn-close-new-profile" aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label" for="new-profile-name-input">Profile Name</label>
+          <input type="text" id="new-profile-name-input" class="form-input" placeholder="e.g., Alex, Work, Personal" />
+          
+          <label class="form-label" for="new-profile-default-view">Default Start View</label>
+          <select id="new-profile-default-view" class="form-input">
+            <option value="categories">Category Cards</option>
+            <option value="matrix">Eisenhower Matrix</option>
+            <option value="cadence">Daily Cadence</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-submit-new-profile" class="btn btn-primary full-width">Create Profile</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast" class="toast hidden" role="alert" aria-live="polite">
+      <span id="toast-message">Task created</span>
+    </div>
+
+  </div>
+
+  <!-- Main JavaScript Application Logic -->
+  <script src="./app.js"></script>
+</body>
+</html>
