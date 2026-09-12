@@ -12,6 +12,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
   const [isUrgent, setIsUrgent] = useState(false);
   const [isImportant, setIsImportant] = useState(false);
   const [reminderTime, setReminderTime] = useState('');
+  const [taskDate, setTaskDate] = useState(format(selectedDate, 'yyyy-MM-dd'));
 
   useEffect(() => {
     if (isOpen) {
@@ -21,8 +22,9 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
       setIsUrgent(false);
       setIsImportant(false);
       setReminderTime('');
+      setTaskDate(format(selectedDate, 'yyyy-MM-dd'));
     }
-  }, [isOpen, activeProfile, defaultBlock]);
+  }, [isOpen, activeProfile, defaultBlock, selectedDate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,7 +33,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
     addTask({
       title: title.trim(),
       profile,
-      task_date: format(selectedDate, 'yyyy-MM-dd'),
+      task_date: taskDate,
       time_block: timeBlock,
       is_urgent: isUrgent,
       is_important: isImportant,
@@ -68,14 +70,18 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Profile</label>
-                <select 
-                  className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-                  value={profile}
-                  onChange={e => setProfile(e.target.value)}
-                >
-                  {allowedProfiles.map(p => <option key={p} value={p}>{p === 'PattuThangam' ? 'Shared' : p}</option>)}
-                </select>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Date</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <CalendarIcon size={14} className="text-slate-400" />
+                  </div>
+                  <input 
+                    type="date"
+                    className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl pl-9 pr-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                    value={taskDate}
+                    onChange={e => setTaskDate(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Time Block</label>
@@ -90,6 +96,17 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
                   <option value="night">🌙 Night</option>
                 </select>
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Profile</label>
+              <select 
+                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                value={profile}
+                onChange={e => setProfile(e.target.value)}
+              >
+                {allowedProfiles.map(p => <option key={p} value={p}>{p === 'PattuThangam' ? 'Shared' : p}</option>)}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -113,14 +130,16 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
               </button>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Clock size={18} className="text-slate-400" />
+            <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-full border border-slate-200 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 transition-all">
+              <div className="bg-white p-1.5 rounded-full shadow-sm text-slate-400">
+                <Clock size={16} />
+              </div>
               <input
                 type="time"
                 value={reminderTime}
                 onChange={e => setReminderTime(e.target.value)}
-                className="flex-1 bg-transparent border-none text-slate-700 focus:ring-0 p-0"
-                placeholder="Add reminder time"
+                className="flex-1 bg-transparent border-none text-slate-700 text-sm font-medium focus:ring-0 p-0"
+                placeholder="Set reminder"
               />
             </div>
           </div>

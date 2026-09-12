@@ -11,7 +11,7 @@ export default function Header({ onOpenSettings }) {
         <div className="bg-brand-500 text-white p-2 rounded-xl">
           <Users size={20} />
         </div>
-        <h1 className="font-bold text-xl text-slate-800 tracking-tight">TaskSync</h1>
+        <h1 className="font-bold text-xl text-slate-800 tracking-tight">PT planner</h1>
       </div>
 
       <div className="flex items-center gap-3">

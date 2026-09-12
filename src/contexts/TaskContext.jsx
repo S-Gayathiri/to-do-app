@@ -28,7 +28,7 @@ export const TaskProvider = ({ children }) => {
   const loadTasks = async () => {
     setLoading(true);
     try {
-      const data = await fetchSheetData('Tasks!A:J');
+      const data = await fetchSheetData('A:J');
       setTasks(data || []);
     } catch (error) {
       console.error("Failed to fetch tasks from Google Sheets", error);
@@ -53,7 +53,7 @@ export const TaskProvider = ({ children }) => {
     setTasks(prev => [...prev, newTask]);
 
     try {
-      await appendRow('Tasks!A:J', [
+      await appendRow('A:J', [
         newTask.id,
         newTask.profile,
         newTask.title,
@@ -78,7 +78,7 @@ export const TaskProvider = ({ children }) => {
     try {
       // Very naive update approach for Google Sheets REST API without batchGet
       // 1. Fetch current data to find row index
-      const data = await fetchSheetData('Tasks!A:J');
+      const data = await fetchSheetData('A:J');
       const rowIndex = data.findIndex(row => row.id === id);
       
       if (rowIndex !== -1) {
@@ -87,7 +87,7 @@ export const TaskProvider = ({ children }) => {
         
         // If we are updating is_completed (which is column H, 8th column)
         if (updates.hasOwnProperty('is_completed')) {
-          await updateCell(`Tasks!H${sheetRow}`, updates.is_completed);
+          await updateCell(`H${sheetRow}`, updates.is_completed);
         }
         
         // Similarly update other fields if needed
@@ -106,12 +106,12 @@ export const TaskProvider = ({ children }) => {
     // Here we'll just log a warning that true row deletion requires batchUpdate.
     console.warn("Delete in Sheets REST API requires batchUpdate DeleteDimensionRequest. Optimistically removed locally.");
     try {
-      const data = await fetchSheetData('Tasks!A:J');
+      const data = await fetchSheetData('A:J');
       const rowIndex = data.findIndex(row => row.id === id);
       if (rowIndex !== -1) {
         const sheetRow = rowIndex + 2;
         // We'll just clear the ID column to "soft delete" it
-        await updateCell(`Tasks!A${sheetRow}`, 'DELETED');
+        await updateCell(`A${sheetRow}`, 'DELETED');
       }
     } catch (error) {
       console.error("Failed to delete", error);

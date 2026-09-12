@@ -51,7 +51,7 @@ async function getAccessToken() {
   return cachedToken;
 }
 
-export async function fetchSheetData(range = 'Tasks!A:J') {
+export async function fetchSheetData(range = 'A:J') {
   if (!SPREADSHEET_ID) return [];
   const token = await getAccessToken();
   
