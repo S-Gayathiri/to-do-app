@@ -32,6 +32,7 @@ export const TaskProvider = ({ children }) => {
       setTasks(data || []);
     } catch (error) {
       console.error("Failed to fetch tasks from Google Sheets", error);
+      alert("Failed to read from Google Sheets: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -67,6 +68,7 @@ export const TaskProvider = ({ children }) => {
       ]);
     } catch (error) {
       console.error("Failed to add task to sheets", error);
+      alert("Failed to add task to Google Sheets: " + error.message);
       loadTasks(); // Revert on failure
     }
   };
@@ -94,7 +96,8 @@ export const TaskProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Failed to update task in sheets", error);
-      loadTasks();
+      alert("Failed to update task in Google Sheets: " + error.message);
+      loadTasks(); // Revert on failure
     }
   };
 
@@ -115,7 +118,8 @@ export const TaskProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Failed to delete", error);
-      loadTasks();
+      alert("Failed to delete task in Google Sheets: " + error.message);
+      loadTasks(); // Revert on failure
     }
   };
 
