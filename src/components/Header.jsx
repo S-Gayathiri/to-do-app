@@ -8,8 +8,8 @@ export default function Header({ onOpenSettings }) {
   return (
     <header className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-40 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-2">
-        <div className="bg-brand-500 text-white p-2 rounded-xl">
-          <Users size={20} />
+        <div className="bg-brand-50 p-1.5 rounded-full border border-brand-100 flex items-center justify-center overflow-hidden w-10 h-10">
+          <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class="text-brand-500 font-bold">PT</span>'; }} />
         </div>
         <h1 className="font-bold text-xl text-slate-800 tracking-tight">PT planner</h1>
       </div>

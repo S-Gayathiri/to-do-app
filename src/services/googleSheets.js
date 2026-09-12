@@ -107,20 +107,74 @@ export async function appendRow(range, rowData) {
   }
 }
 
-// Updating requires finding the row index. For a robust app, you usually read all, find index, then update.
-// We'll expose a batch update method to clear and rewrite if needed, or update specific ranges.
-export async function updateCell(range, value) {
+export async function updateRow(range, values) {
   if (!SPREADSHEET_ID) return;
   const token = await getAccessToken();
 
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`, {
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      values: [[value]]
+      values: [values]
     })
   });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(`Failed to update row: ${JSON.stringify(err)}`);
+  }
+}
+
+export async function deleteRow(sheetId, rowIndex) {
+  if (!SPREADSHEET_ID) return;
+  const token = await getAccessToken();
+
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: sheetId,
+              dimension: 'ROWS',
+              startIndex: rowIndex,
+              endIndex: rowIndex + 1
+            }
+          }
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(`Failed to delete row: ${JSON.stringify(err)}`);
+  }
+}
+
+export async function getSheetId(sheetName = 'Tasks') {
+  if (!SPREADSHEET_ID) return 0;
+  const token = await getAccessToken();
+  
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  if (!response.ok) throw new Error("Failed to fetch spreadsheet metadata");
+  
+  const data = await response.json();
+  const sheet = data.sheets.find(s => s.properties.title === sheetName);
+  if (sheet) return sheet.properties.sheetId;
+  
+  return data.sheets[0].properties.sheetId; // fallback to first sheet
 }

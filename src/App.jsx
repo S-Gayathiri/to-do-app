@@ -13,9 +13,16 @@ function AppContent() {
   const [viewMode, setViewMode] = useState('blocks'); // 'blocks' or 'matrix'
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [newTaskDefaultBlock, setNewTaskDefaultBlock] = useState('morning');
+  const [editingTask, setEditingTask] = useState(null);
 
   const openNewTask = (block = 'morning') => {
+    setEditingTask(null);
     setNewTaskDefaultBlock(block);
+    setIsNewTaskOpen(true);
+  };
+
+  const openEditTask = (task) => {
+    setEditingTask(task);
     setIsNewTaskOpen(true);
   };
 
@@ -45,9 +52,9 @@ function AppContent() {
         </div>
 
         {viewMode === 'blocks' ? (
-          <TimeBlocksView onOpenNewTask={openNewTask} />
+          <TimeBlocksView onOpenNewTask={openNewTask} onEditTask={openEditTask} />
         ) : (
-          <MatrixView onOpenNewTask={openNewTask} />
+          <MatrixView onOpenNewTask={openNewTask} onEditTask={openEditTask} />
         )}
       </main>
 
@@ -63,8 +70,9 @@ function AppContent() {
       
       <TaskEntryModal 
         isOpen={isNewTaskOpen} 
-        onClose={() => setIsNewTaskOpen(false)} 
+        onClose={() => { setIsNewTaskOpen(false); setEditingTask(null); }} 
         defaultBlock={newTaskDefaultBlock}
+        editingTask={editingTask}
       />
     </div>
   );

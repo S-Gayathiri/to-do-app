@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
-import { CheckCircle2, Circle, AlertCircle, Star, Trash2, Plus } from 'lucide-react';
+import { CheckCircle2, Circle, AlertCircle, Star, Trash2, Plus, Pencil } from 'lucide-react';
 
 const blocks = [
   { id: 'morning', label: 'Morning', icon: '🌅', color: 'bg-amber-50 text-amber-900 border-amber-200' },
@@ -10,7 +10,7 @@ const blocks = [
   { id: 'night', label: 'Night', icon: '🌙', color: 'bg-indigo-50 text-indigo-900 border-indigo-200' }
 ];
 
-export default function TimeBlocksView({ onOpenNewTask }) {
+export default function TimeBlocksView({ onOpenNewTask, onEditTask }) {
   const { tasks, activeProfile, selectedDate, updateTask, deleteTask } = useTasks();
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
@@ -46,7 +46,7 @@ export default function TimeBlocksView({ onOpenNewTask }) {
                 </div>
               ) : (
                 blockTasks.map(task => (
-                  <TaskCard key={task.id} task={task} onUpdate={updateTask} onDelete={deleteTask} />
+                  <TaskCard key={task.id} task={task} onUpdate={updateTask} onDelete={deleteTask} onEdit={onEditTask} />
                 ))
               )}
             </div>
@@ -57,7 +57,7 @@ export default function TimeBlocksView({ onOpenNewTask }) {
   );
 }
 
-function TaskCard({ task, onUpdate, onDelete }) {
+function TaskCard({ task, onUpdate, onDelete, onEdit }) {
   return (
     <div className={`flex items-start gap-3 p-3 rounded-xl bg-white shadow-sm border transition-all ${task.is_completed ? 'opacity-60 border-transparent' : 'border-slate-100'}`}>
       <button 
@@ -90,12 +90,20 @@ function TaskCard({ task, onUpdate, onDelete }) {
         </div>
       </div>
       
-      <button 
-        onClick={() => onDelete(task.id)}
-        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-      >
-        <Trash2 size={16} />
-      </button>
+      <div className="flex flex-col gap-1 flex-shrink-0">
+        <button 
+          onClick={() => onEdit(task)}
+          className="p-1.5 text-slate-300 hover:text-brand-500 hover:bg-slate-50 rounded-lg transition-colors"
+        >
+          <Pencil size={16} />
+        </button>
+        <button 
+          onClick={() => onDelete(task.id)}
+          className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
     </div>
   );
 }

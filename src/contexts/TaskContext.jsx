@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { fetchSheetData, appendRow, updateCell } from '../services/googleSheets';
+import { format, addDays, addWeeks, addMonths } from 'date-fns';
+import { fetchSheetData, appendRow, updateRow, deleteRow, getSheetId } from '../services/googleSheets';
+import { scheduleTaskReminder } from '../services/notifications';
 
 const TaskContext = createContext();
 
@@ -28,7 +29,7 @@ export const TaskProvider = ({ children }) => {
   const loadTasks = async () => {
     setLoading(true);
     try {
-      const data = await fetchSheetData('A:J');
+      const data = await fetchSheetData('A:L');
       setTasks(data || []);
     } catch (error) {
       console.error("Failed to fetch tasks from Google Sheets", error);
@@ -43,18 +44,19 @@ export const TaskProvider = ({ children }) => {
   }, []);
 
   const addTask = async (taskData) => {
-    const newTask = {
-      ...taskData,
-      id: Date.now().toString(),
-      is_completed: false,
-      created_at: new Date().toISOString()
-    };
-    
-    // Optimistic update
-    setTasks(prev => [...prev, newTask]);
-
+    setLoading(true);
     try {
-      await appendRow('A:J', [
+      const newTask = {
+        id: crypto.randomUUID(),
+        ...taskData,
+        is_completed: false,
+        created_at: new Date().toISOString()
+      };
+      
+      setTasks(prev => [...prev, newTask]);
+      scheduleTaskReminder(newTask); // Schedule reminder
+
+      await appendRow('A:L', [
         newTask.id,
         newTask.profile,
         newTask.title,
@@ -64,62 +66,157 @@ export const TaskProvider = ({ children }) => {
         newTask.is_important,
         newTask.is_completed,
         newTask.reminder_time || '',
-        newTask.created_at
+        newTask.created_at,
+        newTask.is_recurring || false,
+        newTask.recurrence_pattern || ''
       ]);
     } catch (error) {
-      console.error("Failed to add task to sheets", error);
+      console.error("Failed to add task", error);
       alert("Failed to add task to Google Sheets: " + error.message);
-      loadTasks(); // Revert on failure
+      loadTasks(); // revert on failure
+    } finally {
+      setLoading(false);
     }
   };
 
   const updateTask = async (id, updates) => {
-    // Optimistic
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-
+    setLoading(true);
     try {
-      // Very naive update approach for Google Sheets REST API without batchGet
-      // 1. Fetch current data to find row index
-      const data = await fetchSheetData('A:J');
+      let updatedTask = null;
+      setTasks(prev => prev.map(t => {
+        if (t.id === id) {
+          updatedTask = { ...t, ...updates };
+          return updatedTask;
+        }
+        return t;
+      }));
+
+      const data = await fetchSheetData('A:L');
       const rowIndex = data.findIndex(row => row.id === id);
       
-      if (rowIndex !== -1) {
-        // Row index in sheet is rowIndex + 2 (1 for 1-based, 1 for header)
+      if (rowIndex !== -1 && updatedTask) {
+        scheduleTaskReminder(updatedTask); // Schedule reminder
         const sheetRow = rowIndex + 2;
         
-        // If we are updating is_completed (which is column H, 8th column)
-        if (updates.hasOwnProperty('is_completed')) {
-          await updateCell(`H${sheetRow}`, updates.is_completed);
+        await updateRow(`A${sheetRow}:L${sheetRow}`, [
+          updatedTask.id,
+          updatedTask.profile,
+          updatedTask.title,
+          updatedTask.task_date,
+          updatedTask.time_block,
+          updatedTask.is_urgent,
+          updatedTask.is_important,
+          updatedTask.is_completed,
+          updatedTask.reminder_time || '',
+          updatedTask.created_at || new Date().toISOString(),
+          updatedTask.is_recurring || false,
+          updatedTask.recurrence_pattern || ''
+        ]);
+
+        // Handle recurring tasks: if marking as completed and it is recurring, spawn next
+        if (updates.is_completed && updatedTask.is_recurring && updatedTask.recurrence_pattern) {
+          await spawnNextRecurringTask(updatedTask);
         }
-        
-        // Similarly update other fields if needed
       }
     } catch (error) {
-      console.error("Failed to update task in sheets", error);
+      console.error("Failed to update task", error);
       alert("Failed to update task in Google Sheets: " + error.message);
-      loadTasks(); // Revert on failure
+      loadTasks(); // revert on failure
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const spawnNextRecurringTask = (task) => {
+    const [year, month, day] = task.task_date.split('-');
+    const currentDate = new Date(year, month - 1, day);
+    let nextDate = currentDate;
+
+    if (task.recurrence_pattern === 'daily') nextDate = addDays(currentDate, 1);
+    else if (task.recurrence_pattern === 'weekly') nextDate = addWeeks(currentDate, 1);
+    else if (task.recurrence_pattern === 'monthly') nextDate = addMonths(currentDate, 1);
+
+    const newTask = {
+      ...task,
+      task_date: format(nextDate, 'yyyy-MM-dd'),
+      is_completed: false
+    };
+    delete newTask.id; // ensure it gets a new ID in addTask
+    addTask(newTask);
   };
 
   const deleteTask = async (id) => {
     setTasks(prev => prev.filter(t => t.id !== id));
     
-    // Deleting rows via REST API is complex without apps script (requires batchUpdate with DeleteDimensionRequest).
-    // For simplicity, we just clear the row or mark it as deleted if we wanted to. 
-    // Here we'll just log a warning that true row deletion requires batchUpdate.
-    console.warn("Delete in Sheets REST API requires batchUpdate DeleteDimensionRequest. Optimistically removed locally.");
     try {
-      const data = await fetchSheetData('A:J');
+      const data = await fetchSheetData('A:L');
       const rowIndex = data.findIndex(row => row.id === id);
       if (rowIndex !== -1) {
-        const sheetRow = rowIndex + 2;
-        // We'll just clear the ID column to "soft delete" it
-        await updateCell(`A${sheetRow}`, 'DELETED');
+        const sheetId = await getSheetId('Tasks');
+        // rowIndex in array is 0-based. But the dimension is 0-based indexing for the entire sheet.
+        // Array index 0 corresponds to sheet row 1 (header is row 0). So array index + 1 is the row index to delete.
+        await deleteRow(sheetId, rowIndex + 1);
       }
     } catch (error) {
       console.error("Failed to delete", error);
       alert("Failed to delete task in Google Sheets: " + error.message);
-      loadTasks(); // Revert on failure
+      loadTasks();
+    }
+  };
+
+  const carryForwardTasks = async () => {
+    setLoading(true);
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      // Find tasks that are not completed and are scheduled for before today
+      const tasksToUpdate = tasks.filter(t => !t.is_completed && t.task_date < today && t.id !== 'DELETED');
+      
+      if (tasksToUpdate.length === 0) {
+        alert("No past incomplete tasks found to carry forward.");
+        return;
+      }
+
+      // Optimistically update locally
+      setTasks(prev => prev.map(t => {
+        if (!t.is_completed && t.task_date < today && t.id !== 'DELETED') {
+          return { ...t, task_date: today };
+        }
+        return t;
+      }));
+
+      // Update in sheets
+      const data = await fetchSheetData('A:L');
+      
+      for (const t of tasksToUpdate) {
+        const rowIndex = data.findIndex(row => row.id === t.id);
+        if (rowIndex !== -1) {
+          const sheetRow = rowIndex + 2;
+          const taskToUpdate = { ...data[rowIndex], task_date: today };
+          
+          await updateRow(`A${sheetRow}:L${sheetRow}`, [
+            taskToUpdate.id,
+            taskToUpdate.profile,
+            taskToUpdate.title,
+            taskToUpdate.task_date, // updated to today
+            taskToUpdate.time_block,
+            taskToUpdate.is_urgent,
+            taskToUpdate.is_important,
+            taskToUpdate.is_completed,
+            taskToUpdate.reminder_time || '',
+            taskToUpdate.created_at || new Date().toISOString(),
+            taskToUpdate.is_recurring || false,
+            taskToUpdate.recurrence_pattern || ''
+          ]);
+        }
+      }
+      
+      alert(`Successfully carried forward ${tasksToUpdate.length} task(s) to today!`);
+    } catch (error) {
+      console.error("Failed to carry forward tasks", error);
+      alert("Failed to carry forward tasks: " + error.message);
+      loadTasks(); // revert on failure
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -130,10 +227,10 @@ export const TaskProvider = ({ children }) => {
       identity, setIdentity,
       activeProfile, setActiveProfile,
       allowedProfiles,
-      tasks: tasks.filter(t => t.id !== 'DELETED'), 
+      tasks, 
       loading,
       selectedDate, setSelectedDate,
-      addTask, updateTask, deleteTask, fetchTasks: loadTasks
+      addTask, updateTask, deleteTask, fetchTasks: loadTasks, carryForwardTasks
     }}>
       {children}
     </TaskContext.Provider>

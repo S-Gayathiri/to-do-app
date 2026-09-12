@@ -4,7 +4,7 @@ import { useTasks } from '../contexts/TaskContext';
 import { toggleDailyBriefing } from '../services/notifications';
 
 export default function SettingsPane({ isOpen, onClose }) {
-  const { identity, setIdentity } = useTasks();
+  const { identity, setIdentity, carryForwardTasks } = useTasks();
   const [briefingTime, setBriefingTime] = React.useState(localStorage.getItem('briefing_time') || '08:00');
   const [briefingEnabled, setBriefingEnabled] = React.useState(localStorage.getItem('briefing_enabled') === 'true');
 
@@ -105,6 +105,28 @@ export default function SettingsPane({ isOpen, onClose }) {
             )}
             <p className="text-sm text-slate-500">
               Get a morning summary of tasks assigned to {identity} and shared tasks.
+            </p>
+          </section>
+
+          {/* Data Management Section */}
+          <section className="space-y-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center gap-2 text-slate-800 font-semibold mb-2">
+              <Clock size={18} className="text-brand-500"/>
+              <h3>Data Management</h3>
+            </div>
+            
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to move all incomplete tasks from past dates to today?")) {
+                  carryForwardTasks();
+                }
+              }}
+              className="w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-2 border-slate-200 border text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-sm"
+            >
+              Carry Forward Incomplete Tasks
+            </button>
+            <p className="text-sm text-slate-500">
+              Moves all overdue incomplete tasks to today.
             </p>
           </section>
         </div>

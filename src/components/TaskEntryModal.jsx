@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar as CalendarIcon, Clock, AlertCircle, Star } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Clock, AlertCircle, Star, Repeat, Circle } from 'lucide-react';
 import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
 
-export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'morning' }) {
-  const { selectedDate, allowedProfiles, activeProfile, addTask } = useTasks();
+export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'morning', editingTask = null }) {
+  const { selectedDate, allowedProfiles, activeProfile, addTask, updateTask } = useTasks();
   
   const [title, setTitle] = useState('');
   const [profile, setProfile] = useState(activeProfile);
@@ -13,34 +13,77 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
   const [isImportant, setIsImportant] = useState(false);
   const [reminderTime, setReminderTime] = useState('');
   const [taskDate, setTaskDate] = useState(format(selectedDate, 'yyyy-MM-dd'));
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      setTitle('');
-      setProfile(activeProfile);
-      setTimeBlock(defaultBlock);
-      setIsUrgent(false);
-      setIsImportant(false);
-      setReminderTime('');
-      setTaskDate(format(selectedDate, 'yyyy-MM-dd'));
+      if (editingTask) {
+        setTitle(editingTask.title);
+        setProfile(editingTask.profile);
+        setTimeBlock(editingTask.time_block);
+        setIsUrgent(editingTask.is_urgent);
+        setIsImportant(editingTask.is_important);
+        setReminderTime(editingTask.reminder_time || '');
+        setTaskDate(editingTask.task_date);
+        setIsRecurring(editingTask.is_recurring || false);
+        setRecurrencePattern(editingTask.recurrence_pattern || '');
+      } else {
+        setTitle('');
+        setProfile(activeProfile);
+        setTimeBlock(defaultBlock);
+        setIsUrgent(false);
+        setIsImportant(false);
+        setReminderTime('');
+        setTaskDate(format(selectedDate, 'yyyy-MM-dd'));
+        setIsRecurring(false);
+        setRecurrencePattern('');
+      }
     }
-  }, [isOpen, activeProfile, defaultBlock, selectedDate]);
+  }, [isOpen, activeProfile, defaultBlock, selectedDate, editingTask]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    addTask({
-      title: title.trim(),
-      profile,
-      task_date: taskDate,
-      time_block: timeBlock,
-      is_urgent: isUrgent,
-      is_important: isImportant,
-      reminder_time: reminderTime
-    });
+    if (editingTask) {
+      updateTask(editingTask.id, {
+        title: title.trim(),
+        profile,
+        task_date: taskDate,
+        time_block: timeBlock,
+        is_urgent: isUrgent,
+        is_important: isImportant,
+        reminder_time: reminderTime,
+        is_recurring: isRecurring,
+        recurrence_pattern: isRecurring ? recurrencePattern : ''
+      });
+    } else {
+      addTask({
+        title: title.trim(),
+        profile,
+        task_date: taskDate,
+        time_block: timeBlock,
+        is_urgent: isUrgent,
+        is_important: isImportant,
+        reminder_time: reminderTime,
+        is_recurring: isRecurring,
+        recurrence_pattern: isRecurring ? recurrencePattern : ''
+      });
+    }
     
     onClose();
+  };
+
+  const handleReminderChange = (val) => {
+    setReminderTime(val);
+    if (val) {
+      const hour = parseInt(val.split(':')[0], 10);
+      if (hour >= 5 && hour < 12) setTimeBlock('morning');
+      else if (hour >= 12 && hour < 17) setTimeBlock('afternoon');
+      else if (hour >= 17 && hour < 21) setTimeBlock('evening');
+      else setTimeBlock('night');
+    }
   };
 
   if (!isOpen) return null;
@@ -50,7 +93,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-slide-up sm:animate-fade-in pb-safe">
         <form onSubmit={handleSubmit}>
           <div className="flex items-center justify-between p-4 border-b border-slate-100">
-            <h2 className="text-lg font-bold text-slate-800">New Task</h2>
+            <h2 className="text-lg font-bold text-slate-800">{editingTask ? 'Edit Task' : 'New Task'}</h2>
             <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 text-slate-500">
               <X size={20} />
             </button>
@@ -130,17 +173,41 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
               </button>
             </div>
 
-            <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-full border border-slate-200 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 transition-all">
-              <div className="bg-white p-1.5 rounded-full shadow-sm text-slate-400">
-                <Clock size={16} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1"><Clock size={12}/> Reminder Time</label>
+                <div className="relative flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 transition-all">
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={e => handleReminderChange(e.target.value)}
+                    className="flex-1 bg-transparent border-none text-slate-700 text-sm font-medium focus:ring-0 p-0 ml-2"
+                  />
+                </div>
               </div>
-              <input
-                type="time"
-                value={reminderTime}
-                onChange={e => setReminderTime(e.target.value)}
-                className="flex-1 bg-transparent border-none text-slate-700 text-sm font-medium focus:ring-0 p-0"
-                placeholder="Set reminder"
-              />
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1"><Repeat size={12}/> Repeat</label>
+                <select
+                  value={isRecurring ? recurrencePattern : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      setIsRecurring(false);
+                      setRecurrencePattern('');
+                    } else {
+                      setIsRecurring(true);
+                      setRecurrencePattern(val);
+                    }
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                >
+                  <option value="">No Repeat</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
             </div>
           </div>
 

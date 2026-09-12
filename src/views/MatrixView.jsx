@@ -1,9 +1,9 @@
 import React from 'react';
 import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
-import { AlertCircle, Star, Circle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Star, Circle, CheckCircle2, Pencil } from 'lucide-react';
 
-export default function MatrixView({ onOpenNewTask }) {
+export default function MatrixView({ onOpenNewTask, onEditTask }) {
   const { tasks, activeProfile, selectedDate, updateTask } = useTasks();
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
@@ -51,6 +51,7 @@ export default function MatrixView({ onOpenNewTask }) {
           title="Don't Do" 
           tasks={q4} 
           updateTask={updateTask}
+          onEditTask={onEditTask}
           bg="bg-slate-50" 
           header="bg-slate-200 text-slate-800" 
         />
@@ -59,7 +60,7 @@ export default function MatrixView({ onOpenNewTask }) {
   );
 }
 
-function MatrixQuadrant({ title, tasks, updateTask, bg, header, icon }) {
+function MatrixQuadrant({ title, tasks, updateTask, onEditTask, bg, header, icon }) {
   return (
     <div className={`rounded-xl border border-black/5 overflow-hidden flex flex-col ${bg}`}>
       <div className={`text-xs font-bold uppercase tracking-wider p-2 flex items-center justify-center gap-1.5 ${header}`}>
@@ -69,13 +70,23 @@ function MatrixQuadrant({ title, tasks, updateTask, bg, header, icon }) {
         {tasks.map(task => (
           <div 
             key={task.id} 
-            onClick={() => updateTask(task.id, { is_completed: !task.is_completed })}
-            className={`text-xs p-2 rounded-lg bg-white shadow-sm border border-black/5 cursor-pointer flex gap-2 ${task.is_completed ? 'opacity-50 line-through' : 'text-slate-800 font-medium'}`}
+            className={`text-xs p-2 rounded-lg bg-white shadow-sm border border-black/5 flex gap-2 group ${task.is_completed ? 'opacity-50' : 'text-slate-800 font-medium'}`}
           >
-            <div className="mt-0.5 flex-shrink-0">
+            <div 
+              className="mt-0.5 flex-shrink-0 cursor-pointer"
+              onClick={() => updateTask(task.id, { is_completed: !task.is_completed })}
+            >
               {task.is_completed ? <CheckCircle2 size={12} className="text-brand-500"/> : <Circle size={12} className="text-slate-300"/>}
             </div>
-            <span className="line-clamp-2">{task.title}</span>
+            <span className={`line-clamp-2 flex-1 cursor-pointer ${task.is_completed ? 'line-through' : ''}`} onClick={() => updateTask(task.id, { is_completed: !task.is_completed })}>
+              {task.title}
+            </span>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
+              className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-brand-500 hover:bg-slate-50 rounded transition-all"
+            >
+              <Pencil size={12} />
+            </button>
           </div>
         ))}
       </div>
