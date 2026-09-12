@@ -44,20 +44,11 @@
             </svg>
           </button>
           
-          <!-- Dropdown Menu -->
           <div id="profile-menu" class="dropdown-menu hidden" role="menu">
             <div class="dropdown-header">Switch Profile</div>
             <div id="profile-list" class="profile-list">
               <!-- Populated dynamically via app.js -->
             </div>
-            <div class="dropdown-divider"></div>
-            <button id="btn-add-profile-modal" class="dropdown-item add-profile-action">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              <span>New Profile</span>
-            </button>
           </div>
         </div>
       </div>
@@ -358,22 +349,14 @@
         </div>
         
         <div class="modal-body">
-          <!-- Google Apps Script URL Config -->
+          <!-- Device Identity Setup -->
           <div class="form-section">
-            <label class="form-label" for="setting-gas-url">Google Apps Script Web App URL</label>
-            <p class="form-help">Deploy your <code>Code.gs</code> as Web App ("Execute as Me", "Who has access: Anyone") and paste the exec URL below.</p>
-            <input 
-              type="url" 
-              id="setting-gas-url" 
-              class="form-input" 
-              placeholder="https://script.google.com/macros/s/.../exec"
-              spellcheck="false"
-            />
-            <div class="btn-row">
-              <button id="btn-test-gas-sync" class="btn btn-primary">
-                <span>⚡ Test & Force Sync</span>
-              </button>
-            </div>
+            <label class="form-label" for="setting-identity">Primary Identity</label>
+            <p class="form-help">Select who is using this device. You will receive notifications for this profile and shared tasks.</p>
+            <select id="setting-identity" class="form-input">
+              <option value="pattu">I am Pattu</option>
+              <option value="thangam">I am Thangam</option>
+            </select>
           </div>
 
           <!-- Notification Cadence Settings -->
@@ -420,29 +403,7 @@
       </div>
     </div>
 
-    <!-- MODAL: Add New Profile -->
-    <div id="modal-new-profile" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="new-profile-title">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2 id="new-profile-title">Create Profile</h2>
-          <button class="modal-close-btn" id="btn-close-new-profile" aria-label="Close">✕</button>
-        </div>
-        <div class="modal-body">
-          <label class="form-label" for="new-profile-name-input">Profile Name</label>
-          <input type="text" id="new-profile-name-input" class="form-input" placeholder="e.g., Alex, Work, Personal" />
-          
-          <label class="form-label" for="new-profile-default-view">Default Start View</label>
-          <select id="new-profile-default-view" class="form-input">
-            <option value="categories">Category Cards</option>
-            <option value="matrix">Eisenhower Matrix</option>
-            <option value="cadence">Daily Cadence</option>
-          </select>
-        </div>
-        <div class="modal-footer">
-          <button id="btn-submit-new-profile" class="btn btn-primary full-width">Create Profile</button>
-        </div>
-      </div>
-    </div>
+
 
     <!-- Toast Notification Banner -->
     <div id="toast" class="toast hidden" role="alert" aria-live="polite">

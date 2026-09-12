@@ -30,7 +30,7 @@ const AppState = {
   tasks: [],
   activeView: 'view-categories', // 'view-categories' | 'view-matrix' | 'view-cadence'
   activeFilter: 'all',          // 'all' | 'today' | 'urgent' | 'done'
-  gasUrl: '',
+  primaryIdentity: 'pattu',
   isOnline: navigator.onLine,
   isSyncing: false,
   
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     switchView(AppState.activeView);
 
     // Initial Sync Trigger
-    if (AppState.isOnline && AppState.gasUrl) {
+    if (AppState.isOnline) {
       triggerBackgroundSync();
     }
 
@@ -104,78 +104,28 @@ async function initDatabase() {
   if (profileCount === 0) {
     const defaultProfiles = [
       {
-        profile_id: 'sarah_1',
-        name: 'Sarah',
+        profile_id: 'pattu',
+        name: 'Pattu',
         digest_time: '08:00',
         evening_time: '20:00',
         default_view: 'categories'
       },
       {
-        profile_id: 'alex_2',
-        name: 'Alex',
-        digest_time: '09:00',
-        evening_time: '21:00',
-        default_view: 'matrix'
+        profile_id: 'thangam',
+        name: 'Thangam',
+        digest_time: '08:00',
+        evening_time: '20:00',
+        default_view: 'categories'
+      },
+      {
+        profile_id: 'pattuthangam',
+        name: 'PattuThangam',
+        digest_time: '08:00',
+        evening_time: '20:00',
+        default_view: 'categories'
       }
     ];
     await db.profiles.bulkPut(defaultProfiles);
-
-    const todayStr = getTodayDateString();
-    const sampleTasks = [
-      {
-        task_id: 'task_' + Date.now() + '_1',
-        profile_id: 'sarah_1',
-        title: 'Review Q3 strategic roadmap',
-        notes: '',
-        category: 'Work',
-        quadrant: 'Q2',
-        due_date: todayStr,
-        due_time: '14:00',
-        recurrence: 'none',
-        status: 'pending',
-        updated_at: new Date().toISOString()
-      },
-      {
-        task_id: 'task_' + Date.now() + '_2',
-        profile_id: 'sarah_1',
-        title: 'Fix critical production auth bug',
-        notes: '',
-        category: 'Work',
-        quadrant: 'Q1',
-        due_date: todayStr,
-        due_time: '11:00',
-        recurrence: 'none',
-        status: 'pending',
-        updated_at: new Date().toISOString()
-      },
-      {
-        task_id: 'task_' + Date.now() + '_3',
-        profile_id: 'sarah_1',
-        title: 'Evening 5k tempo run',
-        notes: '',
-        category: 'Fitness',
-        quadrant: 'Q2',
-        due_date: todayStr,
-        due_time: '18:30',
-        recurrence: 'none',
-        status: 'pending',
-        updated_at: new Date().toISOString()
-      },
-      {
-        task_id: 'task_' + Date.now() + '_4',
-        profile_id: 'sarah_1',
-        title: 'Order groceries and household supplies',
-        notes: '',
-        category: 'Personal',
-        quadrant: 'Q3',
-        due_date: '',
-        due_time: '',
-        recurrence: 'none',
-        status: 'pending',
-        updated_at: new Date().toISOString()
-      }
-    ];
-    await db.tasks.bulkPut(sampleTasks);
   }
 }
 
@@ -183,16 +133,18 @@ async function initDatabase() {
  * Load Persistent Settings from IndexedDB
  */
 async function loadSettings() {
-  const gasSetting = await db.settings.get('gas_url');
-  if (gasSetting) {
-    AppState.gasUrl = gasSetting.value;
-    const input = document.getElementById('setting-gas-url');
-    if (input) input.value = AppState.gasUrl;
+  const identitySetting = await db.settings.get('primary_identity');
+  if (identitySetting) {
+    AppState.primaryIdentity = identitySetting.value;
   }
+  const input = document.getElementById('setting-identity');
+  if (input) input.value = AppState.primaryIdentity;
 
   const activeProfileSetting = await db.settings.get('active_profile_id');
   if (activeProfileSetting) {
     AppState.currentProfileId = activeProfileSetting.value;
+  } else {
+    AppState.currentProfileId = AppState.primaryIdentity;
   }
 }
 
@@ -237,7 +189,12 @@ function renderProfileDropdown() {
   if (!listEl) return;
 
   listEl.innerHTML = '';
-  AppState.profiles.forEach(p => {
+  // Only show the primary identity and PattuThangam
+  const visibleProfiles = AppState.profiles.filter(p => 
+    p.profile_id === AppState.primaryIdentity || p.profile_id === 'pattuthangam'
+  );
+
+  visibleProfiles.forEach(p => {
     const btn = document.createElement('button');
     btn.className = `dropdown-item ${p.profile_id === AppState.currentProfileId ? 'active' : ''}`;
     btn.innerHTML = `
@@ -263,7 +220,7 @@ async function switchProfile(profileId) {
   showToast(`Switched profile to ${AppState.profiles.find(p => p.profile_id === profileId)?.name}`);
 
   // Background sync for the new profile
-  if (AppState.isOnline && AppState.gasUrl) {
+  if (AppState.isOnline) {
     triggerBackgroundSync();
   }
 }
@@ -841,7 +798,7 @@ function updateOnlineStatus() {
 }
 
 async function triggerBackgroundSync() {
-  if (!AppState.isOnline || !AppState.gasUrl || AppState.isSyncing) {
+  if (!AppState.isOnline || AppState.isSyncing) {
     return;
   }
 
@@ -865,10 +822,10 @@ async function triggerBackgroundSync() {
         mutations: mutations
       };
 
-      const response = await fetch(AppState.gasUrl, {
+      const response = await fetch('/api/sync', {
         method: 'POST',
         headers: {
-          'Content-Type': 'text/plain;charset=utf-8' // GAS accepts text/plain to avoid preflight CORS blockage
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       });
@@ -885,7 +842,7 @@ async function triggerBackgroundSync() {
     }
 
     // 2. Reconcile / Pull latest remote tasks for current profile
-    const pullUrl = `${AppState.gasUrl}?action=getTasks&profile_id=${encodeURIComponent(AppState.currentProfileId)}`;
+    const pullUrl = `/api/sync?action=getTasks&profile_id=${encodeURIComponent(AppState.currentProfileId)}`;
     const getRes = await fetch(pullUrl);
     
     if (getRes.ok) {
@@ -1007,49 +964,7 @@ function setupEventListeners() {
     });
   }
 
-  // Add Profile Modal Triggers
-  const btnOpenAddProfile = document.getElementById('btn-add-profile-modal');
-  const modalNewProfile = document.getElementById('modal-new-profile');
-  const btnCloseNewProfile = document.getElementById('btn-close-new-profile');
-  const btnSubmitNewProfile = document.getElementById('btn-submit-new-profile');
 
-  if (btnOpenAddProfile && modalNewProfile) {
-    btnOpenAddProfile.addEventListener('click', () => {
-      modalNewProfile.classList.remove('hidden');
-      document.getElementById('new-profile-name-input')?.focus();
-    });
-  }
-
-  if (btnCloseNewProfile && modalNewProfile) {
-    btnCloseNewProfile.addEventListener('click', () => {
-      modalNewProfile.classList.add('hidden');
-    });
-  }
-
-  if (btnSubmitNewProfile) {
-    btnSubmitNewProfile.addEventListener('click', async () => {
-      const nameInput = document.getElementById('new-profile-name-input');
-      const viewSelect = document.getElementById('new-profile-default-view');
-      const name = nameInput ? nameInput.value.trim() : '';
-      if (!name) return;
-
-      const newId = name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
-      const newProfile = {
-        profile_id: newId,
-        name: name,
-        digest_time: '08:00',
-        evening_time: '20:00',
-        default_view: viewSelect ? viewSelect.value : 'categories'
-      };
-
-      await db.profiles.put(newProfile);
-      await loadProfiles();
-      await switchProfile(newId);
-      
-      modalNewProfile.classList.add('hidden');
-      if (nameInput) nameInput.value = '';
-    });
-  }
 
   // Bottom Navigation Bar View Switcher
   const navButtons = document.querySelectorAll('.bottom-nav .nav-item');
@@ -1080,13 +995,23 @@ function setupEventListeners() {
   btnCloseSettings?.addEventListener('click', () => modalSettings?.classList.add('hidden'));
 
   btnSaveSettings?.addEventListener('click', async () => {
-    const gasInput = document.getElementById('setting-gas-url');
+    const identityInput = document.getElementById('setting-identity');
     const digestInput = document.getElementById('setting-digest-time');
     const eveningInput = document.getElementById('setting-evening-time');
 
-    if (gasInput) {
-      AppState.gasUrl = gasInput.value.trim();
-      await db.settings.put({ key: 'gas_url', value: AppState.gasUrl });
+    if (identityInput) {
+      AppState.primaryIdentity = identityInput.value;
+      await db.settings.put({ key: 'primary_identity', value: AppState.primaryIdentity });
+      
+      // If the current profile is not one of the visible ones, switch to the primary identity
+      if (AppState.currentProfileId !== AppState.primaryIdentity && AppState.currentProfileId !== 'pattuthangam') {
+        AppState.currentProfileId = AppState.primaryIdentity;
+        await db.settings.put({ key: 'active_profile_id', value: AppState.currentProfileId });
+      }
+      
+      renderProfileDropdown();
+      updateProfileHeader();
+      await refreshTasks();
     }
 
     const current = AppState.profiles.find(p => p.profile_id === AppState.currentProfileId);
@@ -1102,32 +1027,58 @@ function setupEventListeners() {
     triggerBackgroundSync();
   });
 
-  btnTestSync?.addEventListener('click', async () => {
-    const gasInput = document.getElementById('setting-gas-url');
-    if (gasInput && gasInput.value.trim()) {
-      AppState.gasUrl = gasInput.value.trim();
-      await db.settings.put({ key: 'gas_url', value: AppState.gasUrl });
-      showToast('Testing Google Sheets connection...');
-      await triggerBackgroundSync();
-    } else {
-      showToast('Please enter a valid Google Apps Script URL.');
-    }
-  });
-
-  // Notification Permission Request
+  // Notification Permission Request & Web Push Subscription
   document.getElementById('btn-enable-notifications')?.addEventListener('click', async () => {
-    if ('Notification' in window) {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
       const perm = await Notification.requestPermission();
       if (perm === 'granted') {
-        showToast('Notifications enabled!');
-        triggerLocalAlert('TaskFlow Notifications Active', 'You will receive reminders for scheduled tasks.');
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          
+          // Get VAPID public key from backend
+          const vapidRes = await fetch('/api/vapid-public-key');
+          const vapidData = await vapidRes.json();
+          const applicationServerKey = urlB64ToUint8Array(vapidData.publicKey);
+          
+          const subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey
+          });
+
+          // Send subscription and primaryIdentity to backend
+          await fetch('/api/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription,
+              primaryIdentity: AppState.primaryIdentity
+            })
+          });
+
+          showToast('Push notifications enabled!');
+        } catch (err) {
+          console.error('Push subscription failed:', err);
+          showToast('Failed to setup push notifications.');
+        }
       } else {
         showToast('Notification permission denied.');
       }
     } else {
-      showToast('Notifications not supported in this browser.');
+      showToast('Push notifications not supported in this browser.');
     }
   });
+
+  // Helper to convert VAPID key
+  function urlB64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
 
   // Backup & Purge Actions
   document.getElementById('btn-export-backup')?.addEventListener('click', async () => {

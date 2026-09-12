@@ -1,0 +1,26 @@
+{
+  "name": "to-do-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/S-Gayathiri/to-do-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/S-Gayathiri/to-do-app/issues"
+  },
+  "homepage": "https://github.com/S-Gayathiri/to-do-app#readme",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "google-spreadsheet": "^5.3.0",
+    "web-push": "^3.6.7"
+  }
+}
