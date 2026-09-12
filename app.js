@@ -28,7 +28,7 @@ const AppState = {
   currentProfileId: 'sarah_1',
   profiles: [],
   tasks: [],
-  activeView: 'view-categories', // 'view-categories' | 'view-matrix' | 'view-cadence'
+  activeView: 'view-matrix', // 'view-matrix' | 'view-cadence'
   activeFilter: 'all',          // 'all' | 'today' | 'urgent' | 'done'
   primaryIdentity: 'pattu',
   isOnline: navigator.onLine,
@@ -1109,14 +1109,14 @@ function setupEventListeners() {
     triggerBackgroundSync();
   });
 
-  // Filter Chips in Category View
+  // Filter Chips in Category View (Removed, keeping if we re-add filters to matrix)
   const filterChips = document.querySelectorAll('.filter-chip');
   filterChips.forEach(chip => {
     chip.addEventListener('click', () => {
       filterChips.forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       AppState.activeFilter = chip.dataset.filter || 'all';
-      renderCategoryCardsView();
+      refreshTasks(); // Refresh instead of renderCategoryCardsView
     });
   });
 
@@ -1158,9 +1158,14 @@ function setupEventListeners() {
     const dateInput = document.getElementById('task-due-date');
     const timeInput = document.getElementById('task-due-time');
     const dateLabel = document.getElementById('date-chip-label');
+    const timeLabel = document.getElementById('time-chip-label');
     if (dateInput) dateInput.value = '';
     if (timeInput) timeInput.value = '';
     if (dateLabel) dateLabel.textContent = '📅 Pick';
+    if (timeLabel) timeLabel.textContent = '⏰ Pick';
+    
+    document.querySelectorAll('.time-chip').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
   });
 
   // Eisenhower 2-Pill Toggles
@@ -1183,34 +1188,7 @@ function setupEventListeners() {
     if ('vibrate' in navigator) navigator.vibrate([10]);
   });
 
-  // Category Chips Selection & Custom Category Adder
-  const categoryChipsList = document.getElementById('category-chips-list');
-  categoryChipsList?.addEventListener('click', (e) => {
-    const target = e.target.closest('.chip');
-    if (!target) return;
-
-    if (target.id === 'btn-add-custom-category') {
-      const customName = prompt('Enter new category name:');
-      if (customName && customName.trim()) {
-        const name = customName.trim();
-        const newChip = document.createElement('button');
-        newChip.type = 'button';
-        newChip.className = 'chip active';
-        newChip.dataset.category = name;
-        newChip.textContent = name;
-        
-        categoryChipsList.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        categoryChipsList.insertBefore(newChip, target);
-        AppState.quickCapture.category = name;
-      }
-      return;
-    }
-
-    categoryChipsList.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    target.classList.add('active');
-    AppState.quickCapture.category = target.dataset.category || 'Personal';
-    if ('vibrate' in navigator) navigator.vibrate([10]);
-  });
+  // Category Chips Selection removed
 
   // Quick Date Chips (Today / Tomorrow / Picker)
   const dateChips = document.querySelectorAll('.date-chip');
@@ -1230,6 +1208,23 @@ function setupEventListeners() {
     });
   });
 
+  // Time Chips
+  const timeChips = document.querySelectorAll('.time-chip');
+  timeChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      timeChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      
+      const targetTime = chip.dataset.time;
+      AppState.quickCapture.dueTime = targetTime;
+      
+      const timeInput = document.getElementById('task-due-time');
+      const timeLabel = document.getElementById('time-chip-label');
+      if (timeInput) timeInput.value = targetTime;
+      if (timeLabel) timeLabel.textContent = formatHumanTime(targetTime);
+    });
+  });
+
   // Native Date & Time Input Change Handlers
   const nativeDateInput = document.getElementById('task-due-date');
   nativeDateInput?.addEventListener('change', (e) => {
@@ -1243,6 +1238,11 @@ function setupEventListeners() {
   const nativeTimeInput = document.getElementById('task-due-time');
   nativeTimeInput?.addEventListener('change', (e) => {
     AppState.quickCapture.dueTime = e.target.value;
+    const timeLabel = document.getElementById('time-chip-label');
+    if (timeLabel) {
+      timeLabel.textContent = e.target.value ? formatHumanTime(e.target.value) : '⏰ Pick';
+    }
+    timeChips.forEach(c => c.classList.remove('active'));
   });
 
   // Cadence Rollover Action

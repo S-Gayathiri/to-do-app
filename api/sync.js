@@ -30,15 +30,28 @@ module.exports = async function handler(req, res) {
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID, serviceAccountAuth);
     await doc.loadInfo();
 
-    // Ensure tabs exist
+    const taskHeaders = ['task_id', 'profile_id', 'title', 'notes', 'category', 'quadrant', 'due_date', 'due_time', 'recurrence', 'status', 'updated_at'];
     let tasksSheet = doc.sheetsByTitle['Tasks'];
     if (!tasksSheet) {
-      tasksSheet = await doc.addSheet({ title: 'Tasks', headerValues: ['task_id', 'profile_id', 'title', 'notes', 'category', 'quadrant', 'due_date', 'due_time', 'recurrence', 'status', 'updated_at'] });
+      tasksSheet = await doc.addSheet({ title: 'Tasks', headerValues: taskHeaders });
+    } else {
+      try {
+        await tasksSheet.loadHeaderRow();
+      } catch (e) {
+        await tasksSheet.setHeaderRow(taskHeaders);
+      }
     }
     
+    const subHeaders = ['endpoint', 'p256dh', 'auth', 'primary_identity'];
     let subsSheet = doc.sheetsByTitle['Subscriptions'];
     if (!subsSheet) {
-      subsSheet = await doc.addSheet({ title: 'Subscriptions', headerValues: ['endpoint', 'p256dh', 'auth', 'primary_identity'] });
+      subsSheet = await doc.addSheet({ title: 'Subscriptions', headerValues: subHeaders });
+    } else {
+      try {
+        await subsSheet.loadHeaderRow();
+      } catch (e) {
+        await subsSheet.setHeaderRow(subHeaders);
+      }
     }
 
     if (req.method === 'GET') {
@@ -163,8 +176,8 @@ async function notifySubscribers(subsSheet, profilesToNotify, latestTaskTitles) 
       let taskTitle = Object.values(latestTaskTitles)[0] || 'A task was updated';
       
       const payload = JSON.stringify({
-        title: 'TaskFlow Update',
-        body: \`Task updated: \${taskTitle}\`,
+        title: 'PT planner Update',
+        body: `Task updated: ${taskTitle}`,
         data: { url: './' }
       });
 

@@ -1,6 +1,6 @@
 {
-  "name": "TaskFlow - Offline Eisenhower Matrix",
-  "short_name": "TaskFlow",
+  "name": "PT planner - Offline Eisenhower Matrix",
+  "short_name": "PT planner",
   "description": "Mobile-first offline PWA with Eisenhower Matrix, instant quick-capture, and Google Sheets cloud sync.",
   "start_url": "./index.html",
   "scope": "./",
@@ -14,15 +14,15 @@
   "categories": ["productivity", "utilities"],
   "icons": [
     {
-      "src": "./icon.svg",
+      "src": "./icon.png",
       "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon.svg",
+      "src": "./icon.png",
       "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
     },
     {
@@ -44,14 +44,14 @@
       "short_name": "New Task",
       "description": "Directly open fast task entry",
       "url": "./index.html?action=new",
-      "icons": [{ "src": "./icon.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "./icon.png", "sizes": "192x192" }]
     },
     {
       "name": "Eisenhower Matrix",
       "short_name": "Matrix",
       "description": "View 4-quadrant priority matrix",
       "url": "./index.html?view=matrix",
-      "icons": [{ "src": "./icon.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "./icon.png", "sizes": "192x192" }]
     }
   ],
   "prefer_related_applications": false
