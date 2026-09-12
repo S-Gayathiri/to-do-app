@@ -2,8 +2,14 @@ import { SignJWT, importPKCS8 } from 'jose';
 
 const SPREADSHEET_ID = import.meta.env.VITE_SPREADSHEET_ID;
 const CLIENT_EMAIL = import.meta.env.VITE_GOOGLE_CLIENT_EMAIL;
+let rawKey = import.meta.env.VITE_GOOGLE_PRIVATE_KEY || '';
+if (rawKey.startsWith('"') && rawKey.endsWith('"')) {
+  rawKey = rawKey.slice(1, -1);
+} else if (rawKey.startsWith("'") && rawKey.endsWith("'")) {
+  rawKey = rawKey.slice(1, -1);
+}
 // Private keys in env vars might have escaped newlines
-const PRIVATE_KEY = import.meta.env.VITE_GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+const PRIVATE_KEY = rawKey.replace(/\\n/g, '\n');
 
 let cachedToken = null;
 let tokenExpiry = 0;
