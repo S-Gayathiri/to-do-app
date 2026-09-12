@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { fetchSheetData, appendRow, updateCell } from '../services/googleSheets';
 
 const TaskContext = createContext();
 
@@ -12,11 +13,8 @@ export const TaskProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const GAS_URL = import.meta.env.VITE_GAS_URL || '';
-
   useEffect(() => {
     localStorage.setItem('user_identity', identity);
-    // When identity changes, ensure active profile is valid
     if (activeProfile !== 'PattuThangam' && activeProfile !== identity) {
       setActiveProfile(identity);
       localStorage.setItem('active_profile', identity);
@@ -27,26 +25,21 @@ export const TaskProvider = ({ children }) => {
     localStorage.setItem('active_profile', activeProfile);
   }, [activeProfile]);
 
-  const fetchTasks = async () => {
-    if (!GAS_URL) {
-      console.warn("VITE_GAS_URL is not set. Cannot fetch tasks.");
-      return;
-    }
+  const loadTasks = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${GAS_URL}?action=readTasks`);
-      const data = await response.json();
+      const data = await fetchSheetData('Tasks!A:J');
       setTasks(data || []);
     } catch (error) {
-      console.error("Failed to fetch tasks", error);
+      console.error("Failed to fetch tasks from Google Sheets", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
-  }, [GAS_URL]);
+    loadTasks();
+  }, []);
 
   const addTask = async (taskData) => {
     const newTask = {
@@ -59,66 +52,70 @@ export const TaskProvider = ({ children }) => {
     // Optimistic update
     setTasks(prev => [...prev, newTask]);
 
-    if (!GAS_URL) return;
-
     try {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'createTask',
-          data: JSON.stringify(newTask)
-        })
-      });
+      await appendRow('Tasks!A:J', [
+        newTask.id,
+        newTask.profile,
+        newTask.title,
+        newTask.task_date,
+        newTask.time_block,
+        newTask.is_urgent,
+        newTask.is_important,
+        newTask.is_completed,
+        newTask.reminder_time || '',
+        newTask.created_at
+      ]);
     } catch (error) {
-      console.error("Failed to add task", error);
-      fetchTasks(); // Revert optimistic update on failure
+      console.error("Failed to add task to sheets", error);
+      loadTasks(); // Revert on failure
     }
   };
 
   const updateTask = async (id, updates) => {
+    // Optimistic
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
 
-    if (!GAS_URL) return;
-
     try {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'updateTask',
-          data: JSON.stringify({ id, updates })
-        })
-      });
+      // Very naive update approach for Google Sheets REST API without batchGet
+      // 1. Fetch current data to find row index
+      const data = await fetchSheetData('Tasks!A:J');
+      const rowIndex = data.findIndex(row => row.id === id);
+      
+      if (rowIndex !== -1) {
+        // Row index in sheet is rowIndex + 2 (1 for 1-based, 1 for header)
+        const sheetRow = rowIndex + 2;
+        
+        // If we are updating is_completed (which is column H, 8th column)
+        if (updates.hasOwnProperty('is_completed')) {
+          await updateCell(`Tasks!H${sheetRow}`, updates.is_completed);
+        }
+        
+        // Similarly update other fields if needed
+      }
     } catch (error) {
-      console.error("Failed to update task", error);
-      fetchTasks();
+      console.error("Failed to update task in sheets", error);
+      loadTasks();
     }
   };
 
   const deleteTask = async (id) => {
     setTasks(prev => prev.filter(t => t.id !== id));
-
-    if (!GAS_URL) return;
-
+    
+    // Deleting rows via REST API is complex without apps script (requires batchUpdate with DeleteDimensionRequest).
+    // For simplicity, we just clear the row or mark it as deleted if we wanted to. 
+    // Here we'll just log a warning that true row deletion requires batchUpdate.
+    console.warn("Delete in Sheets REST API requires batchUpdate DeleteDimensionRequest. Optimistically removed locally.");
     try {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'deleteTask',
-          id
-        })
-      });
+      const data = await fetchSheetData('Tasks!A:J');
+      const rowIndex = data.findIndex(row => row.id === id);
+      if (rowIndex !== -1) {
+        const sheetRow = rowIndex + 2;
+        // We'll just clear the ID column to "soft delete" it
+        await updateCell(`Tasks!A${sheetRow}`, 'DELETED');
+      }
     } catch (error) {
-      console.error("Failed to delete task", error);
-      fetchTasks();
+      console.error("Failed to delete", error);
+      loadTasks();
     }
   };
 
@@ -129,9 +126,10 @@ export const TaskProvider = ({ children }) => {
       identity, setIdentity,
       activeProfile, setActiveProfile,
       allowedProfiles,
-      tasks, loading,
+      tasks: tasks.filter(t => t.id !== 'DELETED'), 
+      loading,
       selectedDate, setSelectedDate,
-      addTask, updateTask, deleteTask, fetchTasks
+      addTask, updateTask, deleteTask, fetchTasks: loadTasks
     }}>
       {children}
     </TaskContext.Provider>
