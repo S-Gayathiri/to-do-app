@@ -164,22 +164,18 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const carryForwardTasks = async () => {
+  const carryForwardTasks = async (taskIdsToCarryForward) => {
     setLoading(true);
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      // Find tasks that are not completed and are scheduled for before today
-      const tasksToUpdate = tasks.filter(t => !t.is_completed && t.task_date < today && t.id !== 'DELETED');
+      const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+      const tasksToUpdate = tasks.filter(t => taskIdsToCarryForward.includes(t.id));
       
-      if (tasksToUpdate.length === 0) {
-        alert("No past incomplete tasks found to carry forward.");
-        return;
-      }
+      if (tasksToUpdate.length === 0) return;
 
       // Optimistically update locally
       setTasks(prev => prev.map(t => {
-        if (!t.is_completed && t.task_date < today && t.id !== 'DELETED') {
-          return { ...t, task_date: today };
+        if (taskIdsToCarryForward.includes(t.id)) {
+          return { ...t, task_date: tomorrow };
         }
         return t;
       }));
@@ -191,13 +187,13 @@ export const TaskProvider = ({ children }) => {
         const rowIndex = data.findIndex(row => row.id === t.id);
         if (rowIndex !== -1) {
           const sheetRow = rowIndex + 2;
-          const taskToUpdate = { ...data[rowIndex], task_date: today };
+          const taskToUpdate = { ...data[rowIndex], task_date: tomorrow };
           
           await updateRow(`A${sheetRow}:L${sheetRow}`, [
             taskToUpdate.id,
             taskToUpdate.profile,
             taskToUpdate.title,
-            taskToUpdate.task_date, // updated to today
+            taskToUpdate.task_date,
             taskToUpdate.time_block,
             taskToUpdate.is_urgent,
             taskToUpdate.is_important,
@@ -209,8 +205,6 @@ export const TaskProvider = ({ children }) => {
           ]);
         }
       }
-      
-      alert(`Successfully carried forward ${tasksToUpdate.length} task(s) to today!`);
     } catch (error) {
       console.error("Failed to carry forward tasks", error);
       alert("Failed to carry forward tasks: " + error.message);

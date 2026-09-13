@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { TaskProvider } from './contexts/TaskContext';
 import Header from './components/Header';
 import SettingsPane from './components/SettingsPane';
@@ -6,6 +7,7 @@ import DateSelector from './components/DateSelector';
 import TimeBlocksView from './views/TimeBlocksView';
 import MatrixView from './views/MatrixView';
 import TaskEntryModal from './components/TaskEntryModal';
+import EveningReviewModal from './components/EveningReviewModal';
 import { LayoutGrid, ListTodo, Plus } from 'lucide-react';
 
 function AppContent() {
@@ -14,6 +16,25 @@ function AppContent() {
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [newTaskDefaultBlock, setNewTaskDefaultBlock] = useState('morning');
   const [editingTask, setEditingTask] = useState(null);
+  const [isEveningReviewOpen, setIsEveningReviewOpen] = useState(false);
+
+  useEffect(() => {
+    const checkEveningReview = () => {
+      const now = new Date();
+      if (now.getHours() >= 20) {
+        const todayStr = format(now, 'yyyy-MM-dd');
+        const lastReview = localStorage.getItem('last_evening_review');
+        if (lastReview !== todayStr) {
+          setIsEveningReviewOpen(true);
+          localStorage.setItem('last_evening_review', todayStr);
+        }
+      }
+    };
+    
+    checkEveningReview();
+    const interval = setInterval(checkEveningReview, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const openNewTask = (block = 'morning') => {
     setEditingTask(null);
@@ -73,6 +94,11 @@ function AppContent() {
         onClose={() => { setIsNewTaskOpen(false); setEditingTask(null); }} 
         defaultBlock={newTaskDefaultBlock}
         editingTask={editingTask}
+      />
+
+      <EveningReviewModal
+        isOpen={isEveningReviewOpen}
+        onClose={() => setIsEveningReviewOpen(false)}
       />
     </div>
   );

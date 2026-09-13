@@ -34,13 +34,46 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
         setTimeBlock(defaultBlock);
         setIsUrgent(false);
         setIsImportant(false);
-        setReminderTime('');
+        
+        let rTime = '';
+        if (defaultBlock === 'morning') rTime = '09:00';
+        else if (defaultBlock === 'afternoon') rTime = '14:00';
+        else if (defaultBlock === 'evening') rTime = '19:00';
+        else if (defaultBlock === 'night') rTime = '21:00';
+        setReminderTime(rTime);
+        
         setTaskDate(format(selectedDate, 'yyyy-MM-dd'));
         setIsRecurring(false);
         setRecurrencePattern('');
       }
     }
   }, [isOpen, activeProfile, defaultBlock, selectedDate, editingTask]);
+
+  const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const toggleDay = (day) => {
+    let days = recurrencePattern ? recurrencePattern.split(',') : [];
+    if (days.includes(day)) {
+      days = days.filter(d => d !== day);
+    } else {
+      days.push(day);
+    }
+    days.sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b));
+    const newPattern = days.join(',');
+    setRecurrencePattern(newPattern);
+    setIsRecurring(newPattern.length > 0);
+  };
+
+  const handleTimeBlockChange = (e) => {
+    const block = e.target.value;
+    setTimeBlock(block);
+    let rTime = '';
+    if (block === 'morning') rTime = '09:00';
+    else if (block === 'afternoon') rTime = '14:00';
+    else if (block === 'evening') rTime = '19:00';
+    else if (block === 'night') rTime = '21:00';
+    setReminderTime(rTime);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -101,11 +134,11 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
 
           <div className="p-5 space-y-5">
             <div>
-              <input
-                type="text"
+              <textarea
                 autoFocus
                 placeholder="What needs to be done?"
-                className="w-full text-lg font-medium text-slate-800 placeholder-slate-400 bg-transparent border-none focus:ring-0 p-0"
+                rows={3}
+                className="w-full text-lg font-medium text-slate-800 placeholder-slate-400 bg-transparent border-none focus:ring-0 p-0 resize-none"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
               />
@@ -131,7 +164,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
                 <select 
                   className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                   value={timeBlock}
-                  onChange={e => setTimeBlock(e.target.value)}
+                  onChange={handleTimeBlockChange}
                 >
                   <option value="morning">🌅 Morning</option>
                   <option value="afternoon">☀️ Afternoon</option>
@@ -187,26 +220,26 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1"><Repeat size={12}/> Repeat</label>
-                <select
-                  value={isRecurring ? recurrencePattern : ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) {
-                      setIsRecurring(false);
-                      setRecurrencePattern('');
-                    } else {
-                      setIsRecurring(true);
-                      setRecurrencePattern(val);
-                    }
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-                >
-                  <option value="">No Repeat</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1"><Repeat size={12}/> Repeat Days</label>
+                <div className="flex justify-between gap-1">
+                  {DAYS_OF_WEEK.map(day => {
+                    const isSelected = recurrencePattern.includes(day);
+                    return (
+                      <button
+                        type="button"
+                        key={day}
+                        onClick={() => toggleDay(day)}
+                        className={`w-9 h-9 rounded-full text-xs font-bold transition-all ${
+                          isSelected 
+                            ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30' 
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                      >
+                        {day[0]}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>

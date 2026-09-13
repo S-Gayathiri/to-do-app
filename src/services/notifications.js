@@ -1,3 +1,18 @@
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export const initNotifications = async () => {
   if (!('serviceWorker' in navigator)) return;
   try {
@@ -11,60 +26,72 @@ export const requestNotificationPermission = async () => {
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'granted') return true;
   const permission = await Notification.requestPermission();
+  
+  if (permission === 'granted') {
+    await subscribeToPush();
+  }
   return permission === 'granted';
 };
 
-export const scheduleTaskReminder = async (task) => {
-  if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
-  if (Notification.permission !== 'granted') return;
+const subscribeToPush = async () => {
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    
+    if (!publicKey) {
+      console.warn('VAPID public key not found in env');
+      return;
+    }
 
-  const registration = await navigator.serviceWorker.ready;
-  
-  if (!task.reminder_time) return;
+    const applicationServerKey = urlB64ToUint8Array(publicKey);
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey,
+    });
+
+    // Send subscription to backend
+    await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(subscription),
+    });
+    
+    console.log('Successfully subscribed to push notifications.');
+  } catch (err) {
+    console.error('Failed to subscribe to push notifications:', err);
+  }
+};
+
+export const scheduleTaskReminder = async (task) => {
+  if (!task.reminder_time || !task.task_date) return;
 
   const [year, month, day] = task.task_date.split('-');
   const [hours, minutes] = task.reminder_time.split(':');
   
-  const timestamp = new Date(year, month - 1, day, hours, minutes, 0).getTime();
+  // Format as ISO string for backend
+  const date = new Date(year, month - 1, day, hours, minutes, 0);
   
-  if (timestamp < Date.now()) return; // Already passed
+  if (date.getTime() < Date.now()) return; // Already passed
 
   try {
-    // Try using the experimental Notification Triggers API
-    // Note: This only works in Chrome on Android currently.
-    if ('showTrigger' in Notification.prototype) {
-      await registration.showNotification(task.title, {
-        tag: task.id,
-        body: `It's time to work on: ${task.title}`,
-        icon: '/pwa-192x192.png',
-        vibrate: [200, 100, 200],
-        showTrigger: new window.TimestampTrigger(timestamp)
-      });
-      return;
+    const response = await fetch('/api/schedule-reminder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        taskId: task.id,
+        title: task.title,
+        reminderTimeISO: date.toISOString(),
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to schedule reminder on backend');
     }
-  } catch (e) {
-    console.warn("Notification Triggers API failed or not supported:", e);
+  } catch (err) {
+    console.error('Network error scheduling reminder:', err);
   }
-
-  // Fallback: Local timeout if the app remains open
-  const delay = timestamp - Date.now();
-  if (delay > 0 && delay < 2147483647) { // Max setTimeout delay
-    setTimeout(() => {
-      registration.showNotification(task.title, {
-        tag: task.id,
-        body: `It's time to work on: ${task.title}`,
-        icon: '/pwa-192x192.png',
-        vibrate: [200, 100, 200]
-      });
-    }, delay);
-  }
-};
-
-export const toggleDailyBriefing = async (enabled, timeString) => {
-  const hasPermission = await requestNotificationPermission();
-  if (!hasPermission) return false;
-  
-  // Basic implementation of daily briefing - in a real app this would
-  // use a background sync or server push.
-  return true;
 };

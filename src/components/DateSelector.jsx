@@ -43,25 +43,25 @@ export default function DateSelector() {
         >
           Tomorrow
         </button>
-      </div>
-
-      <div className="relative">
-        <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="bg-brand-50 p-2 rounded-lg text-brand-600">
-              <CalendarIcon size={20} />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Selected Date</p>
-              <p className="font-bold text-slate-800">{format(selectedDate, 'EEEE, MMM d, yyyy')}</p>
-            </div>
+        <div className="relative flex-1 flex items-center justify-center">
+          <div className={`w-full py-2 px-3 rounded-xl font-medium transition-colors border flex items-center justify-center gap-2 ${
+            (!isToday(selectedDate) && !isTomorrow(selectedDate))
+              ? 'bg-brand-50 text-brand-600 border-brand-200 shadow-sm'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+          }`}>
+            <CalendarIcon size={16} />
+            <span className="truncate">
+              {isToday(selectedDate) || isTomorrow(selectedDate) 
+                ? format(selectedDate, 'MMM d')
+                : format(selectedDate, 'MMM d, yyyy')}
+            </span>
           </div>
-          
           <input
             type="date"
             value={format(selectedDate, 'yyyy-MM-dd')}
             onChange={handleDateChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            title="Pick a date"
           />
         </div>
       </div>

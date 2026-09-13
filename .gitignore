@@ -23,3 +23,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# AI Planning and Documentation Artifacts
+implementation_plan.md
+task.md
+walkthrough.md
+deployment_guide.md
+scratch/
+
+# Extra Env files
+.env.*
+!.env.example
