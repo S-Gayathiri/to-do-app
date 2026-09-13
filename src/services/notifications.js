@@ -24,12 +24,16 @@ export const initNotifications = async () => {
 
 export const requestNotificationPermission = async () => {
   if (!('Notification' in window)) return false;
-  if (Notification.permission === 'granted') return true;
-  const permission = await Notification.requestPermission();
+  
+  let permission = Notification.permission;
+  if (permission !== 'granted') {
+    permission = await Notification.requestPermission();
+  }
   
   if (permission === 'granted') {
     await subscribeToPush();
   }
+  
   return permission === 'granted';
 };
 
