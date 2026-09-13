@@ -2,6 +2,7 @@ import { Client } from "@upstash/qstash";
 
 const qstashClient = new Client({
   token: process.env.VITE_QSTASH_TOKEN || process.env.QSTASH_TOKEN,
+  baseUrl: process.env.VITE_QSTASH_URL || process.env.QSTASH_URL || "https://qstash.upstash.io"
 });
 
 export default async function handler(req, res) {
@@ -42,6 +43,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, messageId: response.messageId });
   } catch (error) {
     console.error('QStash scheduling error:', error);
-    return res.status(500).json({ error: 'Failed to schedule reminder' });
+    return res.status(500).json({ error: 'Failed to schedule reminder', details: error.message, stack: error.stack });
   }
 }
