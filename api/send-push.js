@@ -54,7 +54,7 @@ export default async function handler(req, res) {
     });
 
     const sendPromises = subscriptions.map(sub => {
-      return webpush.sendNotification(sub, payload).catch(err => {
+      return webpush.sendNotification(sub, payload, { urgency: 'high' }).catch(err => {
         console.error('Error sending push to subscription:', err);
         // If statusCode === 410, the subscription has expired or unsubscribed
       });

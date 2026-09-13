@@ -13,7 +13,8 @@ self.addEventListener('push', (event) => {
     body: data.body || 'You have a scheduled task.',
     icon: '/logo.png',
     badge: '/logo.png',
-    vibrate: [200, 100, 200]
+    vibrate: [200, 100, 200],
+    requireInteraction: true
   };
 
   event.waitUntil(
