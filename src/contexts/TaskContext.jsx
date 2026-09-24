@@ -41,6 +41,22 @@ export const TaskProvider = ({ children }) => {
 
   useEffect(() => {
     loadTasks();
+
+    if ('serviceWorker' in navigator) {
+      const handleMessage = (event) => {
+        if (event.data?.type === 'TASK_MARKED_DONE') {
+          const taskId = event.data.taskId;
+          setTasks(prev => prev.map(t => t.id === taskId ? { ...t, is_completed: true } : t));
+          // Refresh tasks to pull recurring task changes if any
+          loadTasks();
+        }
+      };
+
+      navigator.serviceWorker.addEventListener('message', handleMessage);
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleMessage);
+      };
+    }
   }, []);
 
   const addTask = async (taskData) => {

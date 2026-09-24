@@ -88,3 +88,24 @@ export async function readFromSheet(range) {
   }
   return response.json();
 }
+
+export async function updateSheet(range, values) {
+  const token = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`;
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ values })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Failed to update sheet: ${err}`);
+  }
+  return response.json();
+}
+
