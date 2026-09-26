@@ -10,7 +10,7 @@ export const useTasks = () => useContext(TaskContext);
 
 export const TaskProvider = ({ children }) => {
   const [identity, setIdentity] = useState(() => localStorage.getItem('user_identity') || 'Pattu');
-  const [activeProfile, setActiveProfile] = useState(() => localStorage.getItem('active_profile') || 'PattuThangam');
+  const [activeProfile, setActiveProfile] = useState(() => localStorage.getItem('active_profile') || 'all');
   
   // Instant loading from offline cache
   const [tasks, setTasks] = useState(() => {
@@ -27,10 +27,6 @@ export const TaskProvider = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('user_identity', identity);
-    if (activeProfile !== 'PattuThangam' && activeProfile !== identity) {
-      setActiveProfile(identity);
-      localStorage.setItem('active_profile', identity);
-    }
   }, [identity]);
 
   useEffect(() => {
@@ -114,13 +110,22 @@ export const TaskProvider = ({ children }) => {
     }
     const targetProfile = profile || activeProfile;
 
+    const isProfileMatch = (taskProfile, filterProfile) => {
+      if (!filterProfile || filterProfile === 'all') return true;
+      const tProf = (taskProfile || '').trim().toLowerCase();
+      const fProf = (filterProfile || '').trim().toLowerCase();
+      if (fProf === 'pattuthangam' || fProf === 'shared') {
+        return tProf === 'pattuthangam' || tProf === 'shared';
+      }
+      return tProf === fProf;
+    };
+
     // Direct tasks matching target date and profile (excluding skipped/deleted single occurrences)
     const rawDirectTasks = (tasks || []).filter(t => {
       if (!t || !t.task_date || typeof t.task_date !== 'string') return false;
       if (t.task_date !== formattedDate) return false;
       if (t.is_skipped || t.is_deleted || t.id === 'DELETED') return false;
-      if (targetProfile === 'PattuThangam') return true;
-      return t.profile === targetProfile || t.profile === 'PattuThangam';
+      return isProfileMatch(t.profile, targetProfile);
     });
 
     // Track skipped single-day occurrences
@@ -153,7 +158,7 @@ export const TaskProvider = ({ children }) => {
       const isRecurring = Boolean(t.is_recurring) && t.is_recurring !== 'false';
       if (!isRecurring || !t.recurrence_pattern) return;
       if (t.task_date >= formattedDate) return; // if ===, already in directTasks; if >, hasn't started
-      if (targetProfile !== 'PattuThangam' && t.profile !== targetProfile && t.profile !== 'PattuThangam') return;
+      if (!isProfileMatch(t.profile, targetProfile)) return;
 
       const parts = t.task_date.split('-').map(Number);
       const targetParts = formattedDate.split('-').map(Number);
@@ -451,12 +456,22 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const allowedProfiles = ['PattuThangam', identity];
+  const viewProfiles = [
+    { id: 'all', label: 'All Tasks', icon: '🌟' },
+    { id: 'Pattu', label: "Pattu's Tasks", icon: '👤' },
+    { id: 'Thangam', label: "Thangam's Tasks", icon: '👤' },
+    { id: 'PattuThangam', label: 'Shared Tasks', icon: '👥' },
+  ];
+
+  const assignableProfiles = ['Pattu', 'Thangam', 'PattuThangam'];
+  const allowedProfiles = ['Pattu', 'Thangam', 'PattuThangam'];
 
   return (
     <TaskContext.Provider value={{
       identity, setIdentity,
       activeProfile, setActiveProfile,
+      viewProfiles,
+      assignableProfiles,
       allowedProfiles,
       tasks, 
       loading,

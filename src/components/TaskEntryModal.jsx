@@ -4,10 +4,10 @@ import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
 
 export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'morning', editingTask = null }) {
-  const { selectedDate, allowedProfiles, activeProfile, addTask, updateTask } = useTasks();
+  const { selectedDate, allowedProfiles, activeProfile, identity, addTask, updateTask } = useTasks();
   
   const [title, setTitle] = useState('');
-  const [profile, setProfile] = useState(activeProfile);
+  const [profile, setProfile] = useState(activeProfile && activeProfile !== 'all' ? activeProfile : (identity || 'Pattu'));
   const [timeBlock, setTimeBlock] = useState(defaultBlock);
   const [isUrgent, setIsUrgent] = useState(false);
   const [isImportant, setIsImportant] = useState(false);
@@ -58,7 +58,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
         }
       } else {
         setTitle('');
-        setProfile(activeProfile);
+        setProfile(activeProfile && activeProfile !== 'all' ? activeProfile : (identity || 'Pattu'));
         setTimeBlock(defaultBlock);
         setIsUrgent(false);
         setIsImportant(false);
@@ -308,13 +308,15 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Profile</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Profile</label>
               <select 
-                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                className="w-full bg-slate-50 border border-slate-200 text-sm font-semibold rounded-xl px-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-slate-700"
                 value={profile}
                 onChange={e => setProfile(e.target.value)}
               >
-                {allowedProfiles.map(p => <option key={p} value={p}>{p === 'PattuThangam' ? 'Shared' : p}</option>)}
+                <option value="Pattu">👤 Pattu</option>
+                <option value="Thangam">👤 Thangam</option>
+                <option value="PattuThangam">👥 Shared (Pattu & Thangam)</option>
               </select>
             </div>
 

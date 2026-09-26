@@ -29,7 +29,7 @@ export default function TimeBlocksView({ onOpenNewTask, onEditTask }) {
 
   const activeTasks = getTasksForDate 
     ? getTasksForDate(formattedDate, activeProfile)
-    : tasks.filter(t => t.task_date === formattedDate && (activeProfile === 'PattuThangam' || t.profile === activeProfile || t.profile === 'PattuThangam'));
+    : [];
 
   const handleDeleteClick = (task) => {
     const isRecurring = Boolean(task.is_recurring) && task.is_recurring !== 'false' || (typeof task.id === 'string' && task.id.startsWith('recurring_')) || Boolean(task.series_id);
@@ -101,6 +101,17 @@ function TaskCard({ task, onUpdate, onDelete, onEdit }) {
           {task.title}
         </p>
         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          {task.profile && (
+            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+              task.profile === 'Pattu' 
+                ? 'bg-blue-50 text-blue-700 border-blue-100' 
+                : task.profile === 'Thangam'
+                ? 'bg-pink-50 text-pink-700 border-pink-100'
+                : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+            }`}>
+              {task.profile === 'PattuThangam' ? '👥 Shared' : `👤 ${task.profile}`}
+            </span>
+          )}
           {task.is_urgent && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
               <AlertCircle size={10} /> Urgent

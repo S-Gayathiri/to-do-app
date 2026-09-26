@@ -11,7 +11,7 @@ export default function MatrixView({ onOpenNewTask, onEditTask }) {
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
   const activeTasks = getTasksForDate
     ? getTasksForDate(formattedDate, activeProfile)
-    : tasks.filter(t => t.task_date === formattedDate && (activeProfile === 'PattuThangam' || t.profile === activeProfile || t.profile === 'PattuThangam'));
+    : [];
 
   const q1 = activeTasks.filter(t => t.is_urgent && t.is_important);
   const q2 = activeTasks.filter(t => !t.is_urgent && t.is_important);
@@ -108,6 +108,13 @@ function MatrixQuadrant({ title, tasks, updateTask, onEditTask, onDeleteTask, bg
               {task.is_completed ? <CheckCircle2 size={12} className="text-brand-500"/> : <Circle size={12} className="text-slate-300"/>}
             </div>
             <span className={`line-clamp-2 flex-1 cursor-pointer ${task.is_completed ? 'line-through' : ''}`} onClick={() => updateTask(task.id, { is_completed: !task.is_completed })}>
+              {task.profile && (
+                <span className={`inline-block mr-1 text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                  task.profile === 'Pattu' ? 'bg-blue-100/70 text-blue-700' : task.profile === 'Thangam' ? 'bg-pink-100/70 text-pink-700' : 'bg-indigo-100/70 text-indigo-700'
+                }`}>
+                  {task.profile === 'PattuThangam' ? 'Shared' : task.profile}
+                </span>
+              )}
               {task.title}
               {Boolean(task.is_recurring) && task.is_recurring !== 'false' && task.recurrence_pattern && (
                 <span className="inline-block ml-1 text-purple-600 align-middle" title={`Repeats: ${task.recurrence_pattern}`}>

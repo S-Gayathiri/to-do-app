@@ -3,7 +3,14 @@ import { Settings, Users, User } from 'lucide-react';
 import { useTasks } from '../contexts/TaskContext';
 
 export default function Header({ onOpenSettings }) {
-  const { identity, activeProfile, setActiveProfile, allowedProfiles } = useTasks();
+  const { identity, activeProfile, setActiveProfile, viewProfiles } = useTasks();
+
+  const profilesList = viewProfiles || [
+    { id: 'all', label: 'All Tasks', icon: '🌟' },
+    { id: 'Pattu', label: "Pattu's Tasks", icon: '👤' },
+    { id: 'Thangam', label: "Thangam's Tasks", icon: '👤' },
+    { id: 'PattuThangam', label: 'Shared Tasks', icon: '👥' },
+  ];
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-40 flex items-center justify-between shadow-sm">
@@ -16,13 +23,13 @@ export default function Header({ onOpenSettings }) {
 
       <div className="flex items-center gap-3">
         <select 
-          className="bg-slate-100 border-none text-sm font-medium rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none text-slate-700"
+          className="bg-slate-100 border border-slate-200/80 text-sm font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none text-slate-700 cursor-pointer hover:bg-slate-200/60 transition-colors shadow-sm"
           value={activeProfile}
           onChange={(e) => setActiveProfile(e.target.value)}
         >
-          {allowedProfiles.map(p => (
-            <option key={p} value={p}>
-              {p === 'PattuThangam' ? 'Shared Tasks' : `${p}'s Tasks`}
+          {profilesList.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.icon} {p.label}
             </option>
           ))}
         </select>
