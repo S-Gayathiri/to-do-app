@@ -80,31 +80,42 @@ export const TaskProvider = ({ children }) => {
   };
 
   const getTasksForDate = (date, profile) => {
-    const formattedDate = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
+    let formattedDate;
+    try {
+      formattedDate = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
+    } catch {
+      formattedDate = format(new Date(), 'yyyy-MM-dd');
+    }
     const targetProfile = profile || activeProfile;
 
     // Direct tasks matching target date and profile
-    const directTasks = tasks.filter(t => {
+    const directTasks = (tasks || []).filter(t => {
+      if (!t || !t.task_date || typeof t.task_date !== 'string') return false;
       if (t.task_date !== formattedDate) return false;
       if (targetProfile === 'PattuThangam') return true;
       return t.profile === targetProfile || t.profile === 'PattuThangam';
     });
 
     // Track existing titles + time blocks + profile, or existing IDs / series_ids
-    const existingKeys = new Set(directTasks.map(t => `${t.title?.trim().toLowerCase()}_${t.time_block}_${t.profile}`));
+    const existingKeys = new Set(directTasks.map(t => `${(t.title || '').trim().toLowerCase()}_${t.time_block}_${t.profile}`));
     const existingSeriesIds = new Set(directTasks.map(t => t.series_id || t.id));
 
     // Expand recurring tasks that began on or before formattedDate
     const virtualRecurringTasks = [];
 
-    tasks.forEach(t => {
+    (tasks || []).forEach(t => {
+      if (!t || !t.task_date || typeof t.task_date !== 'string') return;
       const isRecurring = Boolean(t.is_recurring) && t.is_recurring !== 'false';
       if (!isRecurring || !t.recurrence_pattern) return;
       if (t.task_date >= formattedDate) return; // if ===, already in directTasks; if >, hasn't started
       if (targetProfile !== 'PattuThangam' && t.profile !== targetProfile && t.profile !== 'PattuThangam') return;
 
-      const [y, m, d] = t.task_date.split('-').map(Number);
-      const [ty, tm, td] = formattedDate.split('-').map(Number);
+      const parts = t.task_date.split('-').map(Number);
+      const targetParts = formattedDate.split('-').map(Number);
+      if (parts.length !== 3 || parts.some(isNaN) || targetParts.length !== 3 || targetParts.some(isNaN)) return;
+
+      const [y, m, d] = parts;
+      const [ty, tm, td] = targetParts;
       const startDate = new Date(y, m - 1, d);
       const targetDate = new Date(ty, tm - 1, td);
 
@@ -125,7 +136,7 @@ export const TaskProvider = ({ children }) => {
 
       if (!isMatch) return;
 
-      const key = `${t.title?.trim().toLowerCase()}_${t.time_block}_${t.profile}`;
+      const key = `${(t.title || '').trim().toLowerCase()}_${t.time_block}_${t.profile}`;
       if (existingKeys.has(key) || existingSeriesIds.has(t.id)) {
         return; // Already has an explicit task entry on this date
       }
