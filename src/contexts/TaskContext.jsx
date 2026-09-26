@@ -48,9 +48,9 @@ export const TaskProvider = ({ children }) => {
     try {
       const newTask = {
         id: crypto.randomUUID(),
-        ...taskData,
         is_completed: false,
-        created_at: new Date().toISOString()
+        ...taskData,
+        created_at: taskData.created_at || new Date().toISOString()
       };
       
       setTasks(prev => [...prev, newTask]);
@@ -96,13 +96,13 @@ export const TaskProvider = ({ children }) => {
       return t.profile === targetProfile || t.profile === 'PattuThangam';
     });
 
-    // Deduplicate direct tasks if identical rows exist
-    const seenDirectKeys = new Set();
+    // Deduplicate direct tasks by title + time_block so duplicate rows never show
+    const seenDirectTitles = new Set();
     const directTasks = [];
     rawDirectTasks.forEach(t => {
-      const key = `${t.id || ''}_${(t.title || '').trim().toLowerCase()}_${t.time_block}`;
-      if (!seenDirectKeys.has(key)) {
-        seenDirectKeys.add(key);
+      const titleKey = `${(t.title || '').trim().toLowerCase()}_${t.time_block}`;
+      if (!seenDirectTitles.has(titleKey)) {
+        seenDirectTitles.add(titleKey);
         directTasks.push(t);
       }
     });
