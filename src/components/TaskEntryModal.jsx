@@ -15,6 +15,15 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
   const [taskDate, setTaskDate] = useState(format(selectedDate, 'yyyy-MM-dd'));
   const [recurrenceType, setRecurrenceType] = useState('none');
   const [customDays, setCustomDays] = useState([]);
+  const [editScope, setEditScope] = useState('all'); // 'this' | 'all'
+
+  const isEditingRecurring = Boolean(
+    editingTask && (
+      Boolean(editingTask.is_recurring) && editingTask.is_recurring !== 'false' ||
+      (typeof editingTask.id === 'string' && editingTask.id.startsWith('recurring_')) ||
+      Boolean(editingTask.series_id)
+    )
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -26,6 +35,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
         setIsImportant(editingTask.is_important);
         setReminderTime(editingTask.reminder_time || '');
         setTaskDate(editingTask.task_date);
+        setEditScope('all');
         
         const pattern = (editingTask.recurrence_pattern || '').trim().toLowerCase();
         const hasRecurrence = Boolean(editingTask.is_recurring) && editingTask.is_recurring !== 'false' && pattern !== '';
@@ -52,6 +62,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
         setTimeBlock(defaultBlock);
         setIsUrgent(false);
         setIsImportant(false);
+        setEditScope('all');
         
         let rTime = '';
         if (defaultBlock === 'morning') rTime = '09:00';
@@ -134,22 +145,58 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
       finalPattern = customDays.join(',');
     }
 
-    const payload = {
-      title: title.trim(),
-      profile,
-      task_date: taskDate,
-      time_block: timeBlock,
-      is_urgent: isUrgent,
-      is_important: isImportant,
-      reminder_time: reminderTime,
-      is_recurring: finalIsRecurring,
-      recurrence_pattern: finalPattern
-    };
+    // If editing a recurring task for this day only
+    if (editingTask && isEditingRecurring && editScope === 'this') {
+      // Save as single-day standalone task
+      addTask({
+        title: title.trim(),
+        profile,
+        task_date: taskDate,
+        time_block: timeBlock,
+        is_urgent: isUrgent,
+        is_important: isImportant,
+        reminder_time: reminderTime,
+        is_recurring: false,
+        recurrence_pattern: ''
+      });
 
-    if (editingTask) {
-      updateTask(editingTask.id, payload);
+      // If original task title is different, skip original for this day
+      if ((editingTask.title || '').trim().toLowerCase() !== title.trim().toLowerCase()) {
+        addTask({
+          title: editingTask.title,
+          profile: editingTask.profile,
+          time_block: editingTask.time_block,
+          task_date: taskDate,
+          is_completed: false,
+          is_skipped: true,
+          is_recurring: false,
+          recurrence_pattern: ''
+        });
+      }
+    } else if (editingTask) {
+      updateTask(editingTask.id, {
+        title: title.trim(),
+        profile,
+        task_date: taskDate,
+        time_block: timeBlock,
+        is_urgent: isUrgent,
+        is_important: isImportant,
+        reminder_time: reminderTime,
+        is_recurring: finalIsRecurring,
+        recurrence_pattern: finalPattern
+      });
     } else {
-      addTask(payload);
+      addTask({
+        title: title.trim(),
+        profile,
+        task_date: taskDate,
+        time_block: timeBlock,
+        is_urgent: isUrgent,
+        is_important: isImportant,
+        reminder_time: reminderTime,
+        is_recurring: finalIsRecurring,
+        recurrence_pattern: finalPattern
+      });
     }
     
     onClose();
@@ -186,6 +233,39 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
           </div>
 
           <div className="p-5 space-y-4">
+            {/* Edit Scope for Recurring Tasks */}
+            {isEditingRecurring && (
+              <div className="bg-purple-50 p-2.5 rounded-2xl border border-purple-100 space-y-2">
+                <label className="text-xs font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1">
+                  <Repeat size={13} /> Edit Repeating Task
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditScope('this')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      editScope === 'this'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white text-purple-700 hover:bg-purple-100/50'
+                    }`}
+                  >
+                    This day only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditScope('all')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                      editScope === 'all'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white text-purple-700 hover:bg-purple-100/50'
+                    }`}
+                  >
+                    All occurrences
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <textarea
                 autoFocus

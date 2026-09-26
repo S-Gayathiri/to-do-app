@@ -19,14 +19,26 @@ const blocks = [
   { id: 'night', label: 'Night', icon: '🌙', color: 'bg-indigo-50 text-indigo-900 border-indigo-200' }
 ];
 
+import RecurringActionModal from '../components/RecurringActionModal';
+
 export default function TimeBlocksView({ onOpenNewTask, onEditTask }) {
-  const { tasks, activeProfile, selectedDate, updateTask, deleteTask, getTasksForDate } = useTasks();
+  const { tasks, activeProfile, selectedDate, updateTask, deleteTask, deleteTaskOccurrence, deleteTaskSeries, getTasksForDate } = useTasks();
+  const [deletingTask, setDeletingTask] = useState(null);
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
 
   const activeTasks = getTasksForDate 
     ? getTasksForDate(formattedDate, activeProfile)
     : tasks.filter(t => t.task_date === formattedDate && (activeProfile === 'PattuThangam' || t.profile === activeProfile || t.profile === 'PattuThangam'));
+
+  const handleDeleteClick = (task) => {
+    const isRecurring = Boolean(task.is_recurring) && task.is_recurring !== 'false' || (typeof task.id === 'string' && task.id.startsWith('recurring_')) || Boolean(task.series_id);
+    if (isRecurring) {
+      setDeletingTask(task);
+    } else {
+      deleteTask(task.id);
+    }
+  };
 
   return (
     <div className="px-4 pb-24 space-y-4">
@@ -54,13 +66,22 @@ export default function TimeBlocksView({ onOpenNewTask, onEditTask }) {
                 </div>
               ) : (
                 blockTasks.map(task => (
-                  <TaskCard key={task.id} task={task} onUpdate={updateTask} onDelete={deleteTask} onEdit={onEditTask} />
+                  <TaskCard key={task.id} task={task} onUpdate={updateTask} onDelete={handleDeleteClick} onEdit={onEditTask} />
                 ))
               )}
             </div>
           </div>
         );
       })}
+
+      <RecurringActionModal
+        isOpen={Boolean(deletingTask)}
+        onClose={() => setDeletingTask(null)}
+        task={deletingTask}
+        selectedDate={selectedDate}
+        onConfirmThis={() => deletingTask && deleteTaskOccurrence(deletingTask, formattedDate)}
+        onConfirmAll={() => deletingTask && deleteTaskSeries(deletingTask)}
+      />
     </div>
   );
 }
@@ -111,7 +132,7 @@ function TaskCard({ task, onUpdate, onDelete, onEdit }) {
           <Pencil size={16} />
         </button>
         <button 
-          onClick={() => onDelete(task.id)}
+          onClick={() => onDelete(task)}
           className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
         >
           <Trash2 size={16} />
