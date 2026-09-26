@@ -27,6 +27,9 @@ export const TaskProvider = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('user_identity', identity);
+    if (activeProfile !== 'PattuThangam' && activeProfile !== 'all' && activeProfile !== identity) {
+      setActiveProfile('all');
+    }
   }, [identity]);
 
   useEffect(() => {
@@ -111,11 +114,23 @@ export const TaskProvider = ({ children }) => {
     const targetProfile = profile || activeProfile;
 
     const isProfileMatch = (taskProfile, filterProfile) => {
-      if (!filterProfile || filterProfile === 'all') return true;
       const tProf = (taskProfile || '').trim().toLowerCase();
+      const currentIdentity = (identity || 'Pattu').trim().toLowerCase();
+      const isShared = tProf === 'pattuthangam' || tProf === 'shared';
+
+      // On this device, strictly show only the selected identity's personal tasks and shared tasks
+      if (!isShared && tProf !== currentIdentity) {
+        return false;
+      }
+
+      // 'all' shows all tasks accessible to this device (own + shared)
+      if (!filterProfile || filterProfile === 'all') {
+        return true;
+      }
+
       const fProf = (filterProfile || '').trim().toLowerCase();
       if (fProf === 'pattuthangam' || fProf === 'shared') {
-        return tProf === 'pattuthangam' || tProf === 'shared';
+        return isShared;
       }
       return tProf === fProf;
     };
@@ -457,14 +472,13 @@ export const TaskProvider = ({ children }) => {
   };
 
   const viewProfiles = [
-    { id: 'all', label: 'All Tasks', icon: '🌟' },
-    { id: 'Pattu', label: "Pattu's Tasks", icon: '👤' },
-    { id: 'Thangam', label: "Thangam's Tasks", icon: '👤' },
+    { id: 'all', label: `All Tasks (${identity} & Shared)`, icon: '🌟' },
+    { id: identity, label: `${identity}'s Tasks`, icon: '👤' },
     { id: 'PattuThangam', label: 'Shared Tasks', icon: '👥' },
   ];
 
-  const assignableProfiles = ['Pattu', 'Thangam', 'PattuThangam'];
-  const allowedProfiles = ['Pattu', 'Thangam', 'PattuThangam'];
+  const assignableProfiles = [identity, 'PattuThangam'];
+  const allowedProfiles = [identity, 'PattuThangam'];
 
   return (
     <TaskContext.Provider value={{

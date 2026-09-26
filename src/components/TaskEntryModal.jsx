@@ -314,8 +314,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
                 value={profile}
                 onChange={e => setProfile(e.target.value)}
               >
-                <option value="Pattu">👤 Pattu</option>
-                <option value="Thangam">👤 Thangam</option>
+                <option value={identity || 'Pattu'}>👤 {identity || 'Pattu'}'s Task</option>
                 <option value="PattuThangam">👥 Shared (Pattu & Thangam)</option>
               </select>
             </div>
