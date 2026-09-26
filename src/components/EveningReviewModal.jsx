@@ -4,20 +4,21 @@ import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
 
 export default function EveningReviewModal({ isOpen, onClose }) {
-  const { tasks, selectedDate, carryForwardTasks } = useTasks();
+  const { tasks, selectedDate, carryForwardTasks, getTasksForDate } = useTasks();
   const [selectedTasks, setSelectedTasks] = useState([]);
 
   const todayStr = format(selectedDate, 'yyyy-MM-dd');
   
-  // Get incomplete tasks for the current selected date
-  const incompleteTasks = tasks.filter(t => !t.is_completed && t.task_date === todayStr && t.id !== 'DELETED');
+  // Get tasks for the current selected date including recurring tasks
+  const dayTasks = getTasksForDate ? getTasksForDate(todayStr) : tasks.filter(t => t.task_date === todayStr);
+  const incompleteTasks = dayTasks.filter(t => !t.is_completed && t.id !== 'DELETED');
 
   useEffect(() => {
     if (isOpen) {
       // Auto-select all by default
       setSelectedTasks(incompleteTasks.map(t => t.id));
     }
-  }, [isOpen, tasks]);
+  }, [isOpen, tasks, selectedDate]);
 
   const toggleTask = (id) => {
     setSelectedTasks(prev => 

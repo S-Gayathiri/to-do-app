@@ -4,10 +4,12 @@ import { format } from 'date-fns';
 import { AlertCircle, Star, Circle, CheckCircle2, Pencil, Repeat } from 'lucide-react';
 
 export default function MatrixView({ onOpenNewTask, onEditTask }) {
-  const { tasks, activeProfile, selectedDate, updateTask } = useTasks();
+  const { tasks, activeProfile, selectedDate, updateTask, getTasksForDate } = useTasks();
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-  const activeTasks = tasks.filter(t => t.task_date === formattedDate && t.profile === activeProfile);
+  const activeTasks = getTasksForDate
+    ? getTasksForDate(formattedDate, activeProfile)
+    : tasks.filter(t => t.task_date === formattedDate && (activeProfile === 'PattuThangam' || t.profile === activeProfile || t.profile === 'PattuThangam'));
 
   const q1 = activeTasks.filter(t => t.is_urgent && t.is_important);
   const q2 = activeTasks.filter(t => !t.is_urgent && t.is_important);

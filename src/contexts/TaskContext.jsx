@@ -79,7 +79,89 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const getTasksForDate = (date, profile) => {
+    const formattedDate = typeof date === 'string' ? date : format(date, 'yyyy-MM-dd');
+    const targetProfile = profile || activeProfile;
+
+    // Direct tasks matching target date and profile
+    const directTasks = tasks.filter(t => {
+      if (t.task_date !== formattedDate) return false;
+      if (targetProfile === 'PattuThangam') return true;
+      return t.profile === targetProfile || t.profile === 'PattuThangam';
+    });
+
+    // Track existing titles + time blocks + profile, or existing IDs / series_ids
+    const existingKeys = new Set(directTasks.map(t => `${t.title?.trim().toLowerCase()}_${t.time_block}_${t.profile}`));
+    const existingSeriesIds = new Set(directTasks.map(t => t.series_id || t.id));
+
+    // Expand recurring tasks that began on or before formattedDate
+    const virtualRecurringTasks = [];
+
+    tasks.forEach(t => {
+      const isRecurring = Boolean(t.is_recurring) && t.is_recurring !== 'false';
+      if (!isRecurring || !t.recurrence_pattern) return;
+      if (t.task_date >= formattedDate) return; // if ===, already in directTasks; if >, hasn't started
+      if (targetProfile !== 'PattuThangam' && t.profile !== targetProfile && t.profile !== 'PattuThangam') return;
+
+      const [y, m, d] = t.task_date.split('-').map(Number);
+      const [ty, tm, td] = formattedDate.split('-').map(Number);
+      const startDate = new Date(y, m - 1, d);
+      const targetDate = new Date(ty, tm - 1, td);
+
+      const pattern = (t.recurrence_pattern || '').toLowerCase().trim();
+
+      let isMatch = false;
+      if (pattern === 'daily') {
+        isMatch = true;
+      } else if (pattern === 'weekly') {
+        isMatch = targetDate.getDay() === startDate.getDay();
+      } else if (pattern === 'monthly') {
+        isMatch = targetDate.getDate() === startDate.getDate();
+      } else {
+        const targetDay = format(targetDate, 'EEE').toLowerCase();
+        const targetDays = pattern.split(',').map(s => s.trim().toLowerCase());
+        isMatch = targetDays.includes(targetDay);
+      }
+
+      if (!isMatch) return;
+
+      const key = `${t.title?.trim().toLowerCase()}_${t.time_block}_${t.profile}`;
+      if (existingKeys.has(key) || existingSeriesIds.has(t.id)) {
+        return; // Already has an explicit task entry on this date
+      }
+
+      virtualRecurringTasks.push({
+        ...t,
+        id: `recurring_${t.id}_${formattedDate}`,
+        series_id: t.id,
+        task_date: formattedDate,
+        is_completed: false,
+        is_virtual: true
+      });
+    });
+
+    return [...directTasks, ...virtualRecurringTasks];
+  };
+
   const updateTask = async (id, updates) => {
+    // If it's a virtual recurring instance, create a real record for this date
+    if (typeof id === 'string' && id.startsWith('recurring_')) {
+      const [, seriesId, targetDate] = id.split('_');
+      const baseTask = tasks.find(t => t.id === seriesId);
+      if (baseTask) {
+        const newInstance = {
+          ...baseTask,
+          ...updates,
+          task_date: targetDate,
+          series_id: seriesId
+        };
+        delete newInstance.id;
+        delete newInstance.is_virtual;
+        await addTask(newInstance);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       let updatedTask = null;
@@ -112,12 +194,6 @@ export const TaskProvider = ({ children }) => {
           updatedTask.is_recurring || false,
           updatedTask.recurrence_pattern || ''
         ]);
-
-        // Handle recurring tasks: if marking as completed and it is recurring, spawn next
-        const isTaskRecurring = Boolean(updatedTask.is_recurring) && updatedTask.is_recurring !== 'false';
-        if (updates.is_completed && isTaskRecurring && updatedTask.recurrence_pattern) {
-          await spawnNextRecurringTask(updatedTask);
-        }
       }
     } catch (error) {
       console.error("Failed to update task", error);
@@ -128,63 +204,19 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const spawnNextRecurringTask = async (task) => {
-    if (!task.task_date || !task.recurrence_pattern) return;
-
-    try {
-      const [year, month, day] = task.task_date.split('-').map(Number);
-      const currentDate = new Date(year, month - 1, day);
-      let nextDate = currentDate;
-
-      const pattern = (task.recurrence_pattern || '').toLowerCase().trim();
-
-      if (pattern === 'daily') {
-        nextDate = addDays(currentDate, 1);
-      } else if (pattern === 'weekly') {
-        nextDate = addWeeks(currentDate, 1);
-      } else if (pattern === 'monthly') {
-        nextDate = addMonths(currentDate, 1);
-      } else {
-        // Handle specific days of week, e.g. "Mon,Wed,Fri"
-        const targetDays = pattern.split(',').map(d => d.trim().toLowerCase());
-        const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-        let matched = false;
-        for (let i = 1; i <= 7; i++) {
-          const candidate = addDays(currentDate, i);
-          const dayName = dayNames[candidate.getDay()];
-          if (targetDays.includes(dayName)) {
-            nextDate = candidate;
-            matched = true;
-            break;
-          }
-        }
-        if (!matched) {
-          nextDate = addDays(currentDate, 1);
-        }
-      }
-
-      const newTask = {
-        ...task,
-        task_date: format(nextDate, 'yyyy-MM-dd'),
-        is_completed: false
-      };
-      delete newTask.id; // ensure it gets a new ID in addTask
-      await addTask(newTask);
-    } catch (err) {
-      console.error('Error spawning next recurring task:', err);
-    }
-  };
-
   const deleteTask = async (id) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    let targetId = id;
+    if (typeof id === 'string' && id.startsWith('recurring_')) {
+      targetId = id.split('_')[1];
+    }
+
+    setTasks(prev => prev.filter(t => t.id !== targetId && t.series_id !== targetId));
     
     try {
       const data = await fetchSheetData('A:L');
-      const rowIndex = data.findIndex(row => row.id === id);
+      const rowIndex = data.findIndex(row => row.id === targetId);
       if (rowIndex !== -1) {
         const sheetId = await getSheetId('Tasks');
-        // rowIndex in array is 0-based. But the dimension is 0-based indexing for the entire sheet.
-        // Array index 0 corresponds to sheet row 1 (header is row 0). So array index + 1 is the row index to delete.
         await deleteRow(sheetId, rowIndex + 1);
       }
     } catch (error) {
@@ -254,7 +286,8 @@ export const TaskProvider = ({ children }) => {
       tasks, 
       loading,
       selectedDate, setSelectedDate,
-      addTask, updateTask, deleteTask, fetchTasks: loadTasks, carryForwardTasks
+      addTask, updateTask, deleteTask, fetchTasks: loadTasks, carryForwardTasks,
+      getTasksForDate
     }}>
       {children}
     </TaskContext.Provider>

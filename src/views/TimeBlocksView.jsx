@@ -20,14 +20,13 @@ const blocks = [
 ];
 
 export default function TimeBlocksView({ onOpenNewTask, onEditTask }) {
-  const { tasks, activeProfile, selectedDate, updateTask, deleteTask } = useTasks();
+  const { tasks, activeProfile, selectedDate, updateTask, deleteTask, getTasksForDate } = useTasks();
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
 
-  const activeTasks = tasks.filter(t => 
-    t.task_date === formattedDate && 
-    t.profile === activeProfile
-  );
+  const activeTasks = getTasksForDate 
+    ? getTasksForDate(formattedDate, activeProfile)
+    : tasks.filter(t => t.task_date === formattedDate && (activeProfile === 'PattuThangam' || t.profile === activeProfile || t.profile === 'PattuThangam'));
 
   return (
     <div className="px-4 pb-24 space-y-4">
