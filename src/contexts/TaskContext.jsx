@@ -114,7 +114,8 @@ export const TaskProvider = ({ children }) => {
         ]);
 
         // Handle recurring tasks: if marking as completed and it is recurring, spawn next
-        if (updates.is_completed && updatedTask.is_recurring && updatedTask.recurrence_pattern) {
+        const isTaskRecurring = Boolean(updatedTask.is_recurring) && updatedTask.is_recurring !== 'false';
+        if (updates.is_completed && isTaskRecurring && updatedTask.recurrence_pattern) {
           await spawnNextRecurringTask(updatedTask);
         }
       }
@@ -127,22 +128,51 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const spawnNextRecurringTask = (task) => {
-    const [year, month, day] = task.task_date.split('-');
-    const currentDate = new Date(year, month - 1, day);
-    let nextDate = currentDate;
+  const spawnNextRecurringTask = async (task) => {
+    if (!task.task_date || !task.recurrence_pattern) return;
 
-    if (task.recurrence_pattern === 'daily') nextDate = addDays(currentDate, 1);
-    else if (task.recurrence_pattern === 'weekly') nextDate = addWeeks(currentDate, 1);
-    else if (task.recurrence_pattern === 'monthly') nextDate = addMonths(currentDate, 1);
+    try {
+      const [year, month, day] = task.task_date.split('-').map(Number);
+      const currentDate = new Date(year, month - 1, day);
+      let nextDate = currentDate;
 
-    const newTask = {
-      ...task,
-      task_date: format(nextDate, 'yyyy-MM-dd'),
-      is_completed: false
-    };
-    delete newTask.id; // ensure it gets a new ID in addTask
-    addTask(newTask);
+      const pattern = (task.recurrence_pattern || '').toLowerCase().trim();
+
+      if (pattern === 'daily') {
+        nextDate = addDays(currentDate, 1);
+      } else if (pattern === 'weekly') {
+        nextDate = addWeeks(currentDate, 1);
+      } else if (pattern === 'monthly') {
+        nextDate = addMonths(currentDate, 1);
+      } else {
+        // Handle specific days of week, e.g. "Mon,Wed,Fri"
+        const targetDays = pattern.split(',').map(d => d.trim().toLowerCase());
+        const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        let matched = false;
+        for (let i = 1; i <= 7; i++) {
+          const candidate = addDays(currentDate, i);
+          const dayName = dayNames[candidate.getDay()];
+          if (targetDays.includes(dayName)) {
+            nextDate = candidate;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          nextDate = addDays(currentDate, 1);
+        }
+      }
+
+      const newTask = {
+        ...task,
+        task_date: format(nextDate, 'yyyy-MM-dd'),
+        is_completed: false
+      };
+      delete newTask.id; // ensure it gets a new ID in addTask
+      await addTask(newTask);
+    } catch (err) {
+      console.error('Error spawning next recurring task:', err);
+    }
   };
 
   const deleteTask = async (id) => {

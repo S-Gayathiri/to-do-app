@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
-import { AlertCircle, Star, Circle, CheckCircle2, Pencil } from 'lucide-react';
+import { AlertCircle, Star, Circle, CheckCircle2, Pencil, Repeat } from 'lucide-react';
 
 export default function MatrixView({ onOpenNewTask, onEditTask }) {
   const { tasks, activeProfile, selectedDate, updateTask } = useTasks();
@@ -80,6 +80,11 @@ function MatrixQuadrant({ title, tasks, updateTask, onEditTask, bg, header, icon
             </div>
             <span className={`line-clamp-2 flex-1 cursor-pointer ${task.is_completed ? 'line-through' : ''}`} onClick={() => updateTask(task.id, { is_completed: !task.is_completed })}>
               {task.title}
+              {Boolean(task.is_recurring) && task.is_recurring !== 'false' && task.recurrence_pattern && (
+                <span className="inline-block ml-1 text-purple-600 align-middle" title={`Repeats: ${task.recurrence_pattern}`}>
+                  <Repeat size={10} className="inline" />
+                </span>
+              )}
             </span>
             <button 
               onClick={(e) => { e.stopPropagation(); onEditTask(task); }}

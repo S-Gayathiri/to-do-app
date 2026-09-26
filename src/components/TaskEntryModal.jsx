@@ -13,8 +13,8 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
   const [isImportant, setIsImportant] = useState(false);
   const [reminderTime, setReminderTime] = useState('');
   const [taskDate, setTaskDate] = useState(format(selectedDate, 'yyyy-MM-dd'));
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [recurrencePattern, setRecurrencePattern] = useState('');
+  const [recurrenceType, setRecurrenceType] = useState('none');
+  const [customDays, setCustomDays] = useState([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -26,8 +26,26 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
         setIsImportant(editingTask.is_important);
         setReminderTime(editingTask.reminder_time || '');
         setTaskDate(editingTask.task_date);
-        setIsRecurring(editingTask.is_recurring || false);
-        setRecurrencePattern(editingTask.recurrence_pattern || '');
+        
+        const pattern = (editingTask.recurrence_pattern || '').trim().toLowerCase();
+        const hasRecurrence = Boolean(editingTask.is_recurring) && editingTask.is_recurring !== 'false' && pattern !== '';
+        
+        if (!hasRecurrence) {
+          setRecurrenceType('none');
+          setCustomDays([]);
+        } else if (pattern === 'daily') {
+          setRecurrenceType('daily');
+          setCustomDays([]);
+        } else if (pattern === 'weekly') {
+          setRecurrenceType('weekly');
+          setCustomDays([]);
+        } else if (pattern === 'monthly') {
+          setRecurrenceType('monthly');
+          setCustomDays([]);
+        } else {
+          setRecurrenceType('custom');
+          setCustomDays((editingTask.recurrence_pattern || '').split(',').map(s => s.trim()).filter(Boolean));
+        }
       } else {
         setTitle('');
         setProfile(activeProfile);
@@ -43,8 +61,8 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
         setReminderTime(rTime);
         
         setTaskDate(format(selectedDate, 'yyyy-MM-dd'));
-        setIsRecurring(false);
-        setRecurrencePattern('');
+        setRecurrenceType('none');
+        setCustomDays([]);
       }
     }
   }, [isOpen, activeProfile, defaultBlock, selectedDate, editingTask]);
@@ -52,16 +70,14 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
   const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const toggleDay = (day) => {
-    let days = recurrencePattern ? recurrencePattern.split(',') : [];
+    let days = [...customDays];
     if (days.includes(day)) {
       days = days.filter(d => d !== day);
     } else {
       days.push(day);
     }
     days.sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b));
-    const newPattern = days.join(',');
-    setRecurrencePattern(newPattern);
-    setIsRecurring(newPattern.length > 0);
+    setCustomDays(days);
   };
 
   const handleTimeBlockChange = (e) => {
@@ -75,34 +91,65 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
     setReminderTime(rTime);
   };
 
+  const getRecurrenceHelperText = () => {
+    if (recurrenceType === 'none') return null;
+    if (recurrenceType === 'daily') return '🔁 Repeats every day';
+    
+    const [y, m, d] = (taskDate || '').split('-').map(Number);
+    const dateObj = y && m && d ? new Date(y, m - 1, d) : selectedDate;
+    
+    if (recurrenceType === 'weekly') {
+      const dayName = format(dateObj, 'EEEE');
+      return `📅 Repeats every week on ${dayName}`;
+    }
+    if (recurrenceType === 'monthly') {
+      const dayOfMonth = format(dateObj, 'do');
+      return `🗓️ Repeats on the ${dayOfMonth} of every month`;
+    }
+    if (recurrenceType === 'custom') {
+      if (customDays.length === 0) return '⚙️ Select the days below to repeat';
+      return `🔁 Repeats on ${customDays.join(', ')}`;
+    }
+    return null;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    let finalIsRecurring = false;
+    let finalPattern = '';
+
+    if (recurrenceType === 'daily') {
+      finalIsRecurring = true;
+      finalPattern = 'daily';
+    } else if (recurrenceType === 'weekly') {
+      finalIsRecurring = true;
+      finalPattern = 'weekly';
+    } else if (recurrenceType === 'monthly') {
+      finalIsRecurring = true;
+      finalPattern = 'monthly';
+    } else if (recurrenceType === 'custom') {
+      finalIsRecurring = customDays.length > 0;
+      finalPattern = customDays.join(',');
+    }
+
+    const payload = {
+      title: title.trim(),
+      profile,
+      task_date: taskDate,
+      time_block: timeBlock,
+      is_urgent: isUrgent,
+      is_important: isImportant,
+      reminder_time: reminderTime,
+      is_recurring: finalIsRecurring,
+      recurrence_pattern: finalPattern
+    };
+
     if (editingTask) {
-      updateTask(editingTask.id, {
-        title: title.trim(),
-        profile,
-        task_date: taskDate,
-        time_block: timeBlock,
-        is_urgent: isUrgent,
-        is_important: isImportant,
-        reminder_time: reminderTime,
-        is_recurring: isRecurring,
-        recurrence_pattern: isRecurring ? recurrencePattern : ''
-      });
+      updateTask(editingTask.id, payload);
     } else {
-      addTask({
-        title: title.trim(),
-        profile,
-        task_date: taskDate,
-        time_block: timeBlock,
-        is_urgent: isUrgent,
-        is_important: isImportant,
-        reminder_time: reminderTime,
-        is_recurring: isRecurring,
-        recurrence_pattern: isRecurring ? recurrencePattern : ''
-      });
+      addTask(payload);
     }
     
     onClose();
@@ -121,6 +168,12 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
 
   if (!isOpen) return null;
 
+  const [y, m, d] = (taskDate || '').split('-').map(Number);
+  const dateObj = y && m && d ? new Date(y, m - 1, d) : selectedDate;
+  const currentWeekday = format(dateObj, 'EEEE');
+  const currentDayOfMonth = format(dateObj, 'do');
+  const helperText = getRecurrenceHelperText();
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 sm:p-0">
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-slide-up sm:animate-fade-in pb-safe">
@@ -132,7 +185,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
             </button>
           </div>
 
-          <div className="p-5 space-y-5">
+          <div className="p-5 space-y-4">
             <div>
               <textarea
                 autoFocus
@@ -206,41 +259,65 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1"><Clock size={12}/> Reminder Time</label>
-                <div className="relative flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 transition-all">
-                  <input
-                    type="time"
-                    value={reminderTime}
-                    onChange={e => handleReminderChange(e.target.value)}
-                    className="flex-1 bg-transparent border-none text-slate-700 text-sm font-medium focus:ring-0 p-0 ml-2"
-                  />
-                </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1"><Clock size={12}/> Reminder Time</label>
+              <div className="relative flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 transition-all">
+                <input
+                  type="time"
+                  value={reminderTime}
+                  onChange={e => handleReminderChange(e.target.value)}
+                  className="flex-1 bg-transparent border-none text-slate-700 text-sm font-medium focus:ring-0 p-0 ml-2"
+                />
               </div>
+            </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1"><Repeat size={12}/> Repeat Days</label>
-                <div className="flex justify-between gap-1">
-                  {DAYS_OF_WEEK.map(day => {
-                    const isSelected = recurrencePattern.includes(day);
-                    return (
-                      <button
-                        type="button"
-                        key={day}
-                        onClick={() => toggleDay(day)}
-                        className={`w-9 h-9 rounded-full text-xs font-bold transition-all ${
-                          isSelected 
-                            ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30' 
-                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                        }`}
-                      >
-                        {day[0]}
-                      </button>
-                    );
-                  })}
+            {/* Recurrence Section */}
+            <div className="space-y-2 pt-1">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1.5">
+                <Repeat size={13} className="text-brand-600" /> Recurrence
+              </label>
+              
+              <select
+                value={recurrenceType}
+                onChange={e => setRecurrenceType(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-medium text-slate-700"
+              >
+                <option value="none">Does not repeat</option>
+                <option value="daily">Daily (Every day)</option>
+                <option value="weekly">Weekly (Every {currentWeekday})</option>
+                <option value="monthly">Monthly (On the {currentDayOfMonth})</option>
+                <option value="custom">Specific days of week...</option>
+              </select>
+
+              {helperText && (
+                <p className="text-xs text-brand-700 bg-brand-50/70 border border-brand-100 rounded-lg px-2.5 py-1.5 font-medium">
+                  {helperText}
+                </p>
+              )}
+
+              {recurrenceType === 'custom' && (
+                <div className="pt-1">
+                  <div className="flex justify-between gap-1">
+                    {DAYS_OF_WEEK.map(day => {
+                      const isSelected = customDays.includes(day);
+                      return (
+                        <button
+                          type="button"
+                          key={day}
+                          onClick={() => toggleDay(day)}
+                          className={`w-9 h-9 rounded-full text-xs font-bold transition-all ${
+                            isSelected 
+                              ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30' 
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          }`}
+                        >
+                          {day[0]}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 

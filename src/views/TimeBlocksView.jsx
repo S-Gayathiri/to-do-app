@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
 import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
-import { CheckCircle2, Circle, AlertCircle, Star, Trash2, Plus, Pencil } from 'lucide-react';
+import { CheckCircle2, Circle, AlertCircle, Star, Trash2, Plus, Pencil, Repeat } from 'lucide-react';
+
+const formatRecurrenceBadge = (pattern) => {
+  if (!pattern) return '';
+  const p = pattern.toLowerCase();
+  if (p === 'daily') return 'Daily';
+  if (p === 'weekly') return 'Weekly';
+  if (p === 'monthly') return 'Monthly';
+  return pattern;
+};
 
 const blocks = [
   { id: 'morning', label: 'Morning', icon: '🌅', color: 'bg-amber-50 text-amber-900 border-amber-200' },
@@ -85,6 +94,11 @@ function TaskCard({ task, onUpdate, onDelete, onEdit }) {
           {task.reminder_time && (
             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
               🔔 {task.reminder_time}
+            </span>
+          )}
+          {Boolean(task.is_recurring) && task.is_recurring !== 'false' && task.recurrence_pattern && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-full">
+              <Repeat size={10} /> {formatRecurrenceBadge(task.recurrence_pattern)}
             </span>
           )}
         </div>
