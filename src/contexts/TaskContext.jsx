@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { format, addDays, addWeeks, addMonths } from 'date-fns';
-import { fetchSheetData, appendRow, updateRow, deleteRow, getSheetId } from '../services/googleSheets';
+import { fetchSheetData, appendRow, updateRow, deleteRow, getSheetId, rewriteSheet } from '../services/googleSheets';
 import { scheduleTaskReminder } from '../services/notifications';
+import { subDays } from 'date-fns';
 
 const TaskContext = createContext();
 
@@ -389,6 +390,67 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const cleanupSheet = async (options = { removeDuplicates: true, removeCompleted: false }) => {
+    setLoading(true);
+    try {
+      const data = await fetchSheetData('A:L');
+      if (!data || data.length === 0) {
+        alert("Sheet is already empty.");
+        return;
+      }
+
+      const initialCount = data.length;
+      const seen = new Set();
+      const cleanTasks = [];
+
+      for (const t of data) {
+        if (!t || !t.title || !t.task_date) continue; // Skip empty rows
+        if (t.is_skipped || t.is_deleted || t.id === 'DELETED') continue; // Purge skip markers
+
+        const isCompleted = Boolean(t.is_completed) && t.is_completed !== 'false';
+        if (options.removeCompleted && isCompleted) {
+          continue; // Remove completed if requested
+        }
+
+        const isRecurring = Boolean(t.is_recurring) && t.is_recurring !== 'false';
+        const key = isRecurring 
+          ? `rec_${(t.title || '').trim().toLowerCase()}_${t.time_block}_${t.profile}`
+          : `single_${(t.title || '').trim().toLowerCase()}_${t.task_date}_${t.time_block}_${t.profile}`;
+
+        if (!seen.has(key)) {
+          seen.add(key);
+          cleanTasks.push(t);
+        }
+      }
+
+      // Convert clean tasks to 2D array
+      const rowsArray = cleanTasks.map(t => [
+        t.id || crypto.randomUUID(),
+        t.profile || 'Pattu',
+        t.title || '',
+        t.task_date || '',
+        t.time_block || 'morning',
+        t.is_urgent || false,
+        t.is_important || false,
+        t.is_completed || false,
+        t.reminder_time || '',
+        t.created_at || new Date().toISOString(),
+        t.is_recurring || false,
+        t.recurrence_pattern || ''
+      ]);
+
+      await rewriteSheet(rowsArray);
+      setTasks(cleanTasks);
+      localStorage.setItem('tasks_cache', JSON.stringify(cleanTasks));
+      alert(`Cleaned up Google Sheet! Reduced ${initialCount} rows to ${cleanTasks.length} clean rows.`);
+    } catch (error) {
+      console.error("Failed to clean up sheet", error);
+      alert("Failed to clean up sheet: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const allowedProfiles = ['PattuThangam', identity];
 
   return (
@@ -401,7 +463,8 @@ export const TaskProvider = ({ children }) => {
       selectedDate, setSelectedDate,
       addTask, updateTask, deleteTask, deleteTaskOccurrence, deleteTaskSeries,
       fetchTasks: loadTasks, carryForwardTasks,
-      getTasksForDate
+      getTasksForDate,
+      cleanupSheet
     }}>
       {children}
     </TaskContext.Provider>

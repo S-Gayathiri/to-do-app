@@ -4,7 +4,7 @@ import { useTasks } from '../contexts/TaskContext';
 import { requestNotificationPermission } from '../services/notifications';
 
 export default function SettingsPane({ isOpen, onClose }) {
-  const { identity, setIdentity, carryForwardTasks } = useTasks();
+  const { identity, setIdentity, carryForwardTasks, cleanupSheet } = useTasks();
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(localStorage.getItem('notifications_enabled') === 'true');
 
   const handleIdentityChange = (id) => {
@@ -89,6 +89,48 @@ export default function SettingsPane({ isOpen, onClose }) {
             <p className="text-sm text-slate-500">
               Receive timely reminders for your scheduled tasks.
             </p>
+          </section>
+
+          {/* Google Sheets Maintenance & Cleanup */}
+          <section className="space-y-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center gap-2 text-slate-800 font-semibold mb-1">
+              <span className="text-lg">📊</span>
+              <h3>Google Sheets Maintenance</h3>
+            </div>
+            
+            <p className="text-xs text-slate-500">
+              Optimize your spreadsheet by cleaning redundant records or purging old completed tasks.
+            </p>
+
+            <div className="space-y-2 pt-1">
+              <button
+                onClick={() => {
+                  if (window.confirm("Do you want to clean duplicates and compact the spreadsheet? All your active & recurring tasks will remain safe.")) {
+                    cleanupSheet({ removeDuplicates: true, removeCompleted: false });
+                  }
+                }}
+                className="w-full py-2.5 px-3 rounded-xl border border-brand-200 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm"
+              >
+                <span>🧹</span>
+                <span>Clean Duplicates & Compact Sheet</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to delete all completed tasks from Google Sheets? Active tasks will be kept.")) {
+                    cleanupSheet({ removeDuplicates: true, removeCompleted: true });
+                  }
+                }}
+                className="w-full py-2.5 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm"
+              >
+                <span>🗑️</span>
+                <span>Purge Completed Tasks</span>
+              </button>
+            </div>
+
+            <div className="bg-amber-50/80 border border-amber-200/70 rounded-xl p-3 text-[11px] text-amber-800 leading-relaxed">
+              💡 <strong>Tip:</strong> You can also delete rows directly in your Google Sheet spreadsheet anytime (just select row numbers, right click, and choose <em>Delete rows</em>). The app will automatically sync!
+            </div>
           </section>
 
 

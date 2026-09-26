@@ -160,6 +160,39 @@ export async function deleteRow(sheetId, rowIndex) {
   }
 }
 
+export async function rewriteSheet(rowsData) {
+  if (!SPREADSHEET_ID) return;
+  const token = await getAccessToken();
+
+  // 1. Clear existing rows from row 2 down
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/A2:L:clear`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!rowsData || rowsData.length === 0) return;
+
+  // 2. Put clean rows
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/A2:L?valueInputOption=USER_ENTERED`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      values: rowsData
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(`Failed to rewrite sheet: ${JSON.stringify(err)}`);
+  }
+}
+
 export async function getSheetId(sheetName = 'Tasks') {
   if (!SPREADSHEET_ID) return 0;
   const token = await getAccessToken();
