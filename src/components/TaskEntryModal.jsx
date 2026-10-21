@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar as CalendarIcon, Clock, BellOff, Check } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Clock, Check } from 'lucide-react';
 import { useTasks } from '../contexts/TaskContext';
 import { format, addDays } from 'date-fns';
 
@@ -50,6 +50,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
   const [taskDate, setTaskDate] = useState(format(selectedDate, 'yyyy-MM-dd'));
   const inputRef = useRef(null);
   const customDateInputRef = useRef(null);
+  const customTimeInputRef = useRef(null);
 
   // Generate 5 upcoming dates
   const today = new Date();
@@ -140,6 +141,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
   if (!isOpen) return null;
 
   const currentHourlyTimes = HOURLY_TIMES[timeBlock] || [];
+  const isCustomTime = Boolean(reminderTime && !currentHourlyTimes.some(ht => ht.value === reminderTime));
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-3 sm:p-0">
@@ -262,7 +264,7 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1 flex items-center justify-between">
                 <span>Reminder Time</span>
                 <span className="text-brand-600 font-semibold normal-case">
-                  {reminderTime ? `🔔 ${reminderTime}` : '🔕 Off'}
+                  🔔 {reminderTime}
                 </span>
               </label>
               <div className="grid grid-cols-4 gap-1.5">
@@ -284,18 +286,38 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
                   );
                 })}
 
-                {/* No Reminder Option */}
-                <button
-                  type="button"
-                  onClick={() => setReminderTime('')}
-                  className={`py-2 px-1.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
-                    reminderTime === ''
-                      ? 'bg-slate-700 text-white shadow-sm'
-                      : 'bg-slate-50 text-slate-400 hover:bg-slate-100 border border-slate-200/60'
-                  }`}
-                >
-                  <BellOff size={11} /> Off
-                </button>
+                {/* Custom Time Picker */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customTimeInputRef.current?.showPicker) {
+                        customTimeInputRef.current.showPicker();
+                      } else {
+                        customTimeInputRef.current?.focus();
+                      }
+                    }}
+                    className={`w-full py-2 px-1.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
+                      isCustomTime
+                        ? 'bg-brand-500 text-white shadow-sm'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                    }`}
+                  >
+                    <Clock size={12} />
+                    <span>{isCustomTime ? reminderTime : 'Custom'}</span>
+                  </button>
+                  <input
+                    ref={customTimeInputRef}
+                    type="time"
+                    value={reminderTime || '09:00'}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setReminderTime(e.target.value);
+                      }
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </div>
               </div>
             </div>
 
