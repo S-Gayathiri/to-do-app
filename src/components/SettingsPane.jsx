@@ -16,7 +16,7 @@ export default function SettingsPane({ isOpen, onClose }) {
     setNotificationsEnabled(enabled);
     localStorage.setItem('notifications_enabled', enabled);
     if (enabled) {
-      const granted = await requestNotificationPermission();
+      const granted = await requestNotificationPermission(identity);
       if (!granted) {
         setNotificationsEnabled(false);
         localStorage.setItem('notifications_enabled', false);

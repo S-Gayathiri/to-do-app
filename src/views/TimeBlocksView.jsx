@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTasks } from '../contexts/TaskContext';
 import { format } from 'date-fns';
-import { CheckCircle2, Circle, AlertCircle, Star, Trash2, Plus, Pencil } from 'lucide-react';
+import { CheckCircle2, Circle, AlertCircle, Star, Trash2, Plus, Pencil, Repeat } from 'lucide-react';
 
 const blocks = [
   { id: 'morning', label: 'Morning', icon: '🌅', color: 'bg-amber-50 text-amber-900 border-amber-200' },
@@ -11,14 +11,9 @@ const blocks = [
 ];
 
 export default function TimeBlocksView({ onOpenNewTask, onEditTask }) {
-  const { tasks, activeProfile, selectedDate, updateTask, deleteTask } = useTasks();
+  const { getTasksForDate, selectedDate, activeProfile, toggleTaskCompletion, deleteTask } = useTasks();
 
-  const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-
-  const activeTasks = tasks.filter(t => 
-    t.task_date === formattedDate && 
-    t.profile === activeProfile
-  );
+  const activeTasks = getTasksForDate(selectedDate, activeProfile);
 
   return (
     <div className="px-4 pb-24 space-y-4">
@@ -46,7 +41,13 @@ export default function TimeBlocksView({ onOpenNewTask, onEditTask }) {
                 </div>
               ) : (
                 blockTasks.map(task => (
-                  <TaskCard key={task.id} task={task} onUpdate={updateTask} onDelete={deleteTask} onEdit={onEditTask} />
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={() => toggleTaskCompletion(task.id, selectedDate)} 
+                    onDelete={deleteTask} 
+                    onEdit={onEditTask} 
+                  />
                 ))
               )}
             </div>
@@ -57,11 +58,11 @@ export default function TimeBlocksView({ onOpenNewTask, onEditTask }) {
   );
 }
 
-function TaskCard({ task, onUpdate, onDelete, onEdit }) {
+function TaskCard({ task, onToggle, onDelete, onEdit }) {
   return (
     <div className={`flex items-start gap-3 p-3 rounded-xl bg-white shadow-sm border transition-all ${task.is_completed ? 'opacity-60 border-transparent' : 'border-slate-100'}`}>
       <button 
-        onClick={() => onUpdate(task.id, { is_completed: !task.is_completed })}
+        onClick={onToggle}
         className="mt-0.5 flex-shrink-0 text-slate-400 hover:text-brand-500 transition-colors"
       >
         {task.is_completed ? <CheckCircle2 className="text-brand-500" size={22} /> : <Circle size={22} />}
@@ -72,6 +73,11 @@ function TaskCard({ task, onUpdate, onDelete, onEdit }) {
           {task.title}
         </p>
         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          {task.is_recurring && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 border border-purple-200/60 px-2 py-0.5 rounded-full">
+              <Repeat size={10} /> {task.recurrence_pattern === 'daily' ? 'Daily' : task.recurrence_pattern}
+            </span>
+          )}
           {task.is_urgent && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
               <AlertCircle size={10} /> Urgent

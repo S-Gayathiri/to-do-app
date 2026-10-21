@@ -29,7 +29,7 @@ export const TaskProvider = ({ children }) => {
   const loadTasks = async () => {
     setLoading(true);
     try {
-      const data = await fetchSheetData('A:L');
+      const data = await fetchSheetData('A:M');
       setTasks(data || []);
     } catch (error) {
       console.error("Failed to fetch tasks from Google Sheets", error);
@@ -50,13 +50,14 @@ export const TaskProvider = ({ children }) => {
         id: crypto.randomUUID(),
         ...taskData,
         is_completed: false,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        completed_dates: taskData.completed_dates || ''
       };
       
       setTasks(prev => [...prev, newTask]);
       scheduleTaskReminder(newTask); // Schedule reminder
 
-      await appendRow('A:L', [
+      await appendRow('A:M', [
         newTask.id,
         newTask.profile,
         newTask.title,
@@ -68,7 +69,8 @@ export const TaskProvider = ({ children }) => {
         newTask.reminder_time || '',
         newTask.created_at,
         newTask.is_recurring || false,
-        newTask.recurrence_pattern || ''
+        newTask.recurrence_pattern || '',
+        newTask.completed_dates || ''
       ]);
     } catch (error) {
       console.error("Failed to add task", error);
@@ -91,14 +93,14 @@ export const TaskProvider = ({ children }) => {
         return t;
       }));
 
-      const data = await fetchSheetData('A:L');
+      const data = await fetchSheetData('A:M');
       const rowIndex = data.findIndex(row => row.id === id);
       
       if (rowIndex !== -1 && updatedTask) {
         scheduleTaskReminder(updatedTask); // Schedule reminder
         const sheetRow = rowIndex + 2;
         
-        await updateRow(`A${sheetRow}:L${sheetRow}`, [
+        await updateRow(`A${sheetRow}:M${sheetRow}`, [
           updatedTask.id,
           updatedTask.profile,
           updatedTask.title,
@@ -110,13 +112,9 @@ export const TaskProvider = ({ children }) => {
           updatedTask.reminder_time || '',
           updatedTask.created_at || new Date().toISOString(),
           updatedTask.is_recurring || false,
-          updatedTask.recurrence_pattern || ''
+          updatedTask.recurrence_pattern || '',
+          updatedTask.completed_dates || ''
         ]);
-
-        // Handle recurring tasks: if marking as completed and it is recurring, spawn next
-        if (updates.is_completed && updatedTask.is_recurring && updatedTask.recurrence_pattern) {
-          await spawnNextRecurringTask(updatedTask);
-        }
       }
     } catch (error) {
       console.error("Failed to update task", error);
@@ -127,34 +125,111 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const spawnNextRecurringTask = (task) => {
-    const [year, month, day] = task.task_date.split('-');
-    const currentDate = new Date(year, month - 1, day);
-    let nextDate = currentDate;
+  const isTaskDueOnDate = (task, targetDate) => {
+    const dateStr = typeof targetDate === 'string' ? targetDate : format(targetDate, 'yyyy-MM-dd');
+    if (!task.is_recurring) {
+      return task.task_date === dateStr;
+    }
+    
+    // Recurring task: must start on or before target date
+    if (task.task_date > dateStr) {
+      return false;
+    }
 
-    if (task.recurrence_pattern === 'daily') nextDate = addDays(currentDate, 1);
-    else if (task.recurrence_pattern === 'weekly') nextDate = addWeeks(currentDate, 1);
-    else if (task.recurrence_pattern === 'monthly') nextDate = addMonths(currentDate, 1);
+    const pattern = (task.recurrence_pattern || '').trim();
+    if (!pattern) {
+      return task.task_date === dateStr;
+    }
 
-    const newTask = {
-      ...task,
-      task_date: format(nextDate, 'yyyy-MM-dd'),
-      is_completed: false
-    };
-    delete newTask.id; // ensure it gets a new ID in addTask
-    addTask(newTask);
+    const dateObj = typeof targetDate === 'string' 
+      ? (() => { const [y, m, d] = targetDate.split('-'); return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)); })()
+      : targetDate;
+    const dayOfWeek = format(dateObj, 'EEE'); // 'Mon', 'Tue', etc.
+
+    if (pattern.toLowerCase() === 'daily') {
+      return true;
+    }
+    if (pattern.toLowerCase() === 'weekly') {
+      const [y, m, d] = task.task_date.split('-');
+      const taskStartDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+      return format(taskStartDate, 'EEE') === dayOfWeek;
+    }
+    if (pattern.toLowerCase() === 'monthly') {
+      const taskDay = parseInt(task.task_date.split('-')[2], 10);
+      return dateObj.getDate() === taskDay;
+    }
+
+    // Comma-separated days: e.g. "Mon,Wed,Fri"
+    const days = pattern.split(',').map(s => s.trim());
+    return days.includes(dayOfWeek);
+  };
+
+  const isTaskCompletedOnDate = (task, targetDate) => {
+    const dateStr = typeof targetDate === 'string' ? targetDate : format(targetDate, 'yyyy-MM-dd');
+    if (!task.is_recurring) {
+      return Boolean(task.is_completed);
+    }
+    const completedList = (task.completed_dates || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (completedList.includes(dateStr)) {
+      return true;
+    }
+    // Backwards compatibility: if base task_date matches and is_completed was true
+    if (task.task_date === dateStr && task.is_completed) {
+      return true;
+    }
+    return false;
+  };
+
+  const getTasksForDate = (targetDate = selectedDate, profile = activeProfile) => {
+    const dateStr = typeof targetDate === 'string' ? targetDate : format(targetDate, 'yyyy-MM-dd');
+    return tasks
+      .filter(t => {
+        if (profile && t.profile !== profile) return false;
+        return isTaskDueOnDate(t, targetDate);
+      })
+      .map(t => ({
+        ...t,
+        is_completed: isTaskCompletedOnDate(t, targetDate),
+        display_date: dateStr
+      }));
+  };
+
+  const toggleTaskCompletion = async (id, targetDate = selectedDate) => {
+    const dateStr = typeof targetDate === 'string' ? targetDate : format(targetDate, 'yyyy-MM-dd');
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    if (task.is_recurring) {
+      const completedList = (task.completed_dates || '').split(',').map(s => s.trim()).filter(Boolean);
+      const isDone = isTaskCompletedOnDate(task, dateStr);
+      let updatedCompletedList;
+      if (isDone) {
+        updatedCompletedList = completedList.filter(d => d !== dateStr);
+      } else {
+        updatedCompletedList = [...completedList.filter(d => d !== dateStr), dateStr];
+      }
+      const newCompletedDates = updatedCompletedList.join(',');
+      await updateTask(id, { completed_dates: newCompletedDates });
+    } else {
+      await updateTask(id, { is_completed: !task.is_completed });
+    }
   };
 
   const deleteTask = async (id) => {
     setTasks(prev => prev.filter(t => t.id !== id));
+
+    // Cancel any scheduled notification on the backend
+    fetch('/api/delete-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId: id })
+    }).catch(err => console.error("Failed to delete QStash schedule:", err));
     
     try {
-      const data = await fetchSheetData('A:L');
+      const data = await fetchSheetData('A:M');
       const rowIndex = data.findIndex(row => row.id === id);
       if (rowIndex !== -1) {
         const sheetId = await getSheetId('Tasks');
-        // rowIndex in array is 0-based. But the dimension is 0-based indexing for the entire sheet.
-        // Array index 0 corresponds to sheet row 1 (header is row 0). So array index + 1 is the row index to delete.
         await deleteRow(sheetId, rowIndex + 1);
       }
     } catch (error) {
@@ -168,20 +243,21 @@ export const TaskProvider = ({ children }) => {
     setLoading(true);
     try {
       const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
-      const tasksToUpdate = tasks.filter(t => taskIdsToCarryForward.includes(t.id));
+      // Only non-recurring tasks are carried forward to avoid breaking recurrence schedules
+      const tasksToUpdate = tasks.filter(t => !t.is_recurring && taskIdsToCarryForward.includes(t.id));
       
       if (tasksToUpdate.length === 0) return;
 
       // Optimistically update locally
       setTasks(prev => prev.map(t => {
-        if (taskIdsToCarryForward.includes(t.id)) {
+        if (taskIdsToCarryForward.includes(t.id) && !t.is_recurring) {
           return { ...t, task_date: tomorrow };
         }
         return t;
       }));
 
       // Update in sheets
-      const data = await fetchSheetData('A:L');
+      const data = await fetchSheetData('A:M');
       
       for (const t of tasksToUpdate) {
         const rowIndex = data.findIndex(row => row.id === t.id);
@@ -189,7 +265,7 @@ export const TaskProvider = ({ children }) => {
           const sheetRow = rowIndex + 2;
           const taskToUpdate = { ...data[rowIndex], task_date: tomorrow };
           
-          await updateRow(`A${sheetRow}:L${sheetRow}`, [
+          await updateRow(`A${sheetRow}:M${sheetRow}`, [
             taskToUpdate.id,
             taskToUpdate.profile,
             taskToUpdate.title,
@@ -201,7 +277,8 @@ export const TaskProvider = ({ children }) => {
             taskToUpdate.reminder_time || '',
             taskToUpdate.created_at || new Date().toISOString(),
             taskToUpdate.is_recurring || false,
-            taskToUpdate.recurrence_pattern || ''
+            taskToUpdate.recurrence_pattern || '',
+            taskToUpdate.completed_dates || ''
           ]);
         }
       }
@@ -224,7 +301,8 @@ export const TaskProvider = ({ children }) => {
       tasks, 
       loading,
       selectedDate, setSelectedDate,
-      addTask, updateTask, deleteTask, fetchTasks: loadTasks, carryForwardTasks
+      addTask, updateTask, deleteTask, fetchTasks: loadTasks, carryForwardTasks,
+      isTaskDueOnDate, isTaskCompletedOnDate, getTasksForDate, toggleTaskCompletion
     }}>
       {children}
     </TaskContext.Provider>

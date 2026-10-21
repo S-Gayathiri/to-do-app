@@ -22,7 +22,7 @@ export const initNotifications = async () => {
   }
 };
 
-export const requestNotificationPermission = async () => {
+export const requestNotificationPermission = async (identity) => {
   if (!('Notification' in window)) return false;
   
   let permission = Notification.permission;
@@ -31,13 +31,13 @@ export const requestNotificationPermission = async () => {
   }
   
   if (permission === 'granted') {
-    await subscribeToPush();
+    await subscribeToPush(identity);
   }
   
   return permission === 'granted';
 };
 
-const subscribeToPush = async () => {
+const subscribeToPush = async (identity) => {
   try {
     const registration = await navigator.serviceWorker.ready;
     const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
@@ -59,7 +59,7 @@ const subscribeToPush = async () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(subscription),
+      body: JSON.stringify({ subscription, identity }),
     });
     
     console.log('Successfully subscribed to push notifications.');
@@ -69,15 +69,20 @@ const subscribeToPush = async () => {
 };
 
 export const scheduleTaskReminder = async (task) => {
-  if (!task.reminder_time || !task.task_date) return;
+  if (!task.reminder_time) return;
 
-  const [year, month, day] = task.task_date.split('-');
-  const [hours, minutes] = task.reminder_time.split(':');
-  
-  // Format as ISO string for backend
-  const date = new Date(year, month - 1, day, hours, minutes, 0);
-  
-  if (date.getTime() < Date.now()) return; // Already passed
+  const isRecurring = Boolean(task.is_recurring && task.recurrence_pattern);
+  let reminderTimeISO = null;
+
+  if (task.task_date) {
+    const [year, month, day] = task.task_date.split('-');
+    const [hours, minutes] = task.reminder_time.split(':');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes), 0);
+    
+    // For non-recurring tasks, don't schedule if it has already passed
+    if (!isRecurring && date.getTime() < Date.now()) return;
+    reminderTimeISO = date.toISOString();
+  }
 
   try {
     const response = await fetch('/api/schedule-reminder', {
@@ -88,7 +93,13 @@ export const scheduleTaskReminder = async (task) => {
       body: JSON.stringify({
         taskId: task.id,
         title: task.title,
-        reminderTimeISO: date.toISOString(),
+        reminderTimeISO,
+        reminder_time: task.reminder_time,
+        is_recurring: isRecurring,
+        recurrence_pattern: task.recurrence_pattern || '',
+        profile: task.profile,
+        is_urgent: task.is_urgent,
+        is_important: task.is_important
       }),
     });
     

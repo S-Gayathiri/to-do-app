@@ -89,7 +89,8 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
         is_important: isImportant,
         reminder_time: reminderTime,
         is_recurring: isRecurring,
-        recurrence_pattern: isRecurring ? recurrencePattern : ''
+        recurrence_pattern: isRecurring ? recurrencePattern : '',
+        completed_dates: isRecurring ? (editingTask.completed_dates || '') : ''
       });
     } else {
       addTask({
@@ -101,7 +102,8 @@ export default function TaskEntryModal({ isOpen, onClose, defaultBlock = 'mornin
         is_important: isImportant,
         reminder_time: reminderTime,
         is_recurring: isRecurring,
-        recurrence_pattern: isRecurring ? recurrencePattern : ''
+        recurrence_pattern: isRecurring ? recurrencePattern : '',
+        completed_dates: ''
       });
     }
     

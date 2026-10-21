@@ -5,34 +5,45 @@ import Header from './components/Header';
 import SettingsPane from './components/SettingsPane';
 import DateSelector from './components/DateSelector';
 import TimeBlocksView from './views/TimeBlocksView';
-import MatrixView from './views/MatrixView';
 import TaskEntryModal from './components/TaskEntryModal';
 import EveningReviewModal from './components/EveningReviewModal';
+import MorningBriefingModal from './components/MorningBriefingModal';
 import { LayoutGrid, ListTodo, Plus } from 'lucide-react';
 
 function AppContent() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [viewMode, setViewMode] = useState('blocks'); // 'blocks' or 'matrix'
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [newTaskDefaultBlock, setNewTaskDefaultBlock] = useState('morning');
   const [editingTask, setEditingTask] = useState(null);
   const [isEveningReviewOpen, setIsEveningReviewOpen] = useState(false);
+  const [isMorningBriefingOpen, setIsMorningBriefingOpen] = useState(false);
 
   useEffect(() => {
-    const checkEveningReview = () => {
+    const checkRoutines = () => {
       const now = new Date();
+      const todayStr = format(now, 'yyyy-MM-dd');
+      
+      // Evening Review (8 PM or later)
       if (now.getHours() >= 20) {
-        const todayStr = format(now, 'yyyy-MM-dd');
         const lastReview = localStorage.getItem('last_evening_review');
         if (lastReview !== todayStr) {
           setIsEveningReviewOpen(true);
           localStorage.setItem('last_evening_review', todayStr);
         }
       }
+      
+      // Morning Briefing (6 AM to 11 AM)
+      if (now.getHours() >= 6 && now.getHours() < 12) {
+        const lastBriefing = localStorage.getItem('last_morning_briefing');
+        if (lastBriefing !== todayStr) {
+          setIsMorningBriefingOpen(true);
+          localStorage.setItem('last_morning_briefing', todayStr);
+        }
+      }
     };
     
-    checkEveningReview();
-    const interval = setInterval(checkEveningReview, 60000);
+    checkRoutines();
+    const interval = setInterval(checkRoutines, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -54,29 +65,7 @@ function AppContent() {
       <main className="max-w-md mx-auto">
         <DateSelector />
 
-        {/* View Toggle */}
-        <div className="px-4 pb-4">
-          <div className="bg-slate-200/60 p-1 rounded-xl flex items-center">
-            <button 
-              onClick={() => setViewMode('blocks')}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all ${viewMode === 'blocks' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
-            >
-              <ListTodo size={16} /> Blocks
-            </button>
-            <button 
-              onClick={() => setViewMode('matrix')}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all ${viewMode === 'matrix' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
-            >
-              <LayoutGrid size={16} /> Matrix
-            </button>
-          </div>
-        </div>
-
-        {viewMode === 'blocks' ? (
-          <TimeBlocksView onOpenNewTask={openNewTask} onEditTask={openEditTask} />
-        ) : (
-          <MatrixView onOpenNewTask={openNewTask} onEditTask={openEditTask} />
-        )}
+        <TimeBlocksView onOpenNewTask={openNewTask} onEditTask={openEditTask} />
       </main>
 
       {/* FAB */}
@@ -99,6 +88,11 @@ function AppContent() {
       <EveningReviewModal
         isOpen={isEveningReviewOpen}
         onClose={() => setIsEveningReviewOpen(false)}
+      />
+
+      <MorningBriefingModal
+        isOpen={isMorningBriefingOpen}
+        onClose={() => setIsMorningBriefingOpen(false)}
       />
     </div>
   );

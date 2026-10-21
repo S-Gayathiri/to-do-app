@@ -88,3 +88,77 @@ export async function readFromSheet(range) {
   }
   return response.json();
 }
+
+export async function updateSheetRow(range, values) {
+  const token = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`;
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ values })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Failed to update sheet: ${err}`);
+  }
+  return response.json();
+}
+
+export async function deleteSheetRow(sheetName, rowIndexZeroBased) {
+  const token = await getAccessToken();
+  
+  // First, get the sheet ID based on the sheet name
+  const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`;
+  const metaResponse = await fetch(metaUrl, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  
+  if (!metaResponse.ok) {
+    throw new Error(`Failed to get spreadsheet metadata`);
+  }
+  
+  const metaData = await metaResponse.json();
+  const sheet = metaData.sheets.find(s => s.properties.title === sheetName);
+  
+  if (!sheet) {
+    throw new Error(`Sheet ${sheetName} not found`);
+  }
+  
+  const sheetId = sheet.properties.sheetId;
+
+  // Then send a batchUpdate to delete the dimension
+  const batchUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
+  const response = await fetch(batchUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: sheetId,
+              dimension: 'ROWS',
+              startIndex: rowIndexZeroBased,
+              endIndex: rowIndexZeroBased + 1
+            }
+          }
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Failed to delete row: ${err}`);
+  }
+  return response.json();
+}

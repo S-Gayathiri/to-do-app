@@ -9,8 +9,8 @@ export default function EveningReviewModal({ isOpen, onClose }) {
 
   const todayStr = format(selectedDate, 'yyyy-MM-dd');
   
-  // Get incomplete tasks for the current selected date
-  const incompleteTasks = tasks.filter(t => !t.is_completed && t.task_date === todayStr && t.id !== 'DELETED');
+  // Get incomplete one-off tasks for the current selected date (recurring tasks follow their own schedule)
+  const incompleteTasks = tasks.filter(t => !t.is_recurring && !t.is_completed && t.task_date === todayStr && t.id !== 'DELETED');
 
   useEffect(() => {
     if (isOpen) {
