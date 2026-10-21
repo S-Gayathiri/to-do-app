@@ -21,13 +21,17 @@ export default async function handler(req, res) {
       return res.status(200).send('<h1>No subscriptions found</h1><p>Please enable push notifications in the app first.</p>');
     }
 
-    const subscriptions = rows.map(row => {
+    const uniqueMap = new Map();
+    rows.forEach(row => {
       try {
-        return JSON.parse(row[1]);
-      } catch (e) {
-        return null;
-      }
-    }).filter(Boolean);
+        const sub = JSON.parse(row[1]);
+        if (sub && sub.endpoint) {
+          uniqueMap.set(sub.endpoint, sub);
+        }
+      } catch (e) {}
+    });
+
+    const subscriptions = Array.from(uniqueMap.values());
 
     const payload = JSON.stringify({
       title: 'Test Notification',

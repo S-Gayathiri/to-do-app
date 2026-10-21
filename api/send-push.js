@@ -65,13 +65,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, message: 'No subscriptions found' });
     }
 
-    // 2. Parse and filter subscriptions
-    let subscriptions = [];
+    // 2. Parse, filter, and deduplicate subscriptions by endpoint
+    const uniqueSubs = new Map();
     data.forEach((row, index) => {
-      if (index === 0) return; // skip header
       if (row[1]) {
         try {
           const sub = JSON.parse(row[1]);
+          if (!sub || !sub.endpoint) return;
+
           const subIdentity = row[2] || 'PattuThangam'; // Default if missing
           
           // Filter by profile
@@ -84,13 +85,15 @@ export default async function handler(req, res) {
           }
 
           if (shouldSend) {
-            subscriptions.push(sub);
+            uniqueSubs.set(sub.endpoint, sub);
           }
         } catch (e) {
-          console.error('Invalid subscription format at row', index + 1);
+          // Skip header or invalid JSON row
         }
       }
     });
+
+    const subscriptions = Array.from(uniqueSubs.values());
 
     if (subscriptions.length === 0) {
       return res.status(200).json({ success: true, message: 'No matching subscriptions found' });

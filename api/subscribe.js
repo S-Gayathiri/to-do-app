@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const rows = sheetData.values || [];
     
     let rowIndexToUpdate = -1;
-    for (let i = 1; i < rows.length; i++) { // Skip header
+    for (let i = 0; i < rows.length; i++) {
       if (rows[i][1]) {
         try {
           const sub = JSON.parse(rows[i][1]);
