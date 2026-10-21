@@ -78,16 +78,6 @@ function TaskCard({ task, onToggle, onDelete, onEdit }) {
               <Repeat size={10} /> {task.recurrence_pattern === 'daily' ? 'Daily' : task.recurrence_pattern}
             </span>
           )}
-          {task.is_urgent && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
-              <AlertCircle size={10} /> Urgent
-            </span>
-          )}
-          {task.is_important && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-              <Star size={10} /> Important
-            </span>
-          )}
           {task.reminder_time && (
             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
               🔔 {task.reminder_time}

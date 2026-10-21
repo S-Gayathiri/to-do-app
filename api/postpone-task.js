@@ -9,8 +9,8 @@ export default async function handler(req, res) {
     const { taskId, minutesToAdd = 60 } = req.body;
     if (!taskId) return res.status(400).json({ error: 'Missing taskId' });
 
-    // 1. Fetch all tasks to find the row index
-    const sheetData = await readFromSheet('Tasks!A:L');
+    // 1. Fetch all tasks to find the row index (Columns A:K)
+    const sheetData = await readFromSheet('Tasks!A:K');
     const rows = sheetData.values || [];
     
     let rowIndex = -1;
@@ -29,11 +29,9 @@ export default async function handler(req, res) {
 
     // 2. Add minutesToAdd to task_date and reminder_time
     const taskDateStr = taskRow[3]; // Column D
-    const reminderTimeStr = taskRow[8]; // Column I
+    const reminderTimeStr = taskRow[6]; // Column G (previously Column I)
     const title = taskRow[2]; // Column C
     const profile = taskRow[1]; // Column B
-    const is_urgent = taskRow[9] === 'TRUE'; // Column J
-    const is_important = taskRow[10] === 'TRUE'; // Column K
 
     if (!taskDateStr || !reminderTimeStr) {
       return res.status(400).json({ error: 'Task does not have a scheduled time' });
@@ -47,10 +45,10 @@ export default async function handler(req, res) {
     const newDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
     const newTimeStr = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
 
-    // 3. Update the sheet (Column D and Column I)
+    // 3. Update the sheet (Column D and Column G)
     const sheetRowNumber = rowIndex + 1;
     await updateSheetRow(`Tasks!D${sheetRowNumber}`, [[newDateStr]]);
-    await updateSheetRow(`Tasks!I${sheetRowNumber}`, [[newTimeStr]]);
+    await updateSheetRow(`Tasks!G${sheetRowNumber}`, [[newTimeStr]]);
 
     // 4. Trigger /api/schedule-reminder internally to schedule the new QStash webhook
     const protocol = req.headers['x-forwarded-proto'] || 'http';
@@ -66,9 +64,8 @@ export default async function handler(req, res) {
         taskId,
         title,
         reminderTimeISO: dateObj.toISOString(),
-        profile,
-        is_urgent,
-        is_important
+        reminder_time: newTimeStr,
+        profile
       })
     });
 

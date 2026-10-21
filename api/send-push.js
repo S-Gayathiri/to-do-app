@@ -35,19 +35,19 @@ export default async function handler(req, res) {
     // Check if task exists and was already completed for today (skip if done)
     if (taskId) {
       try {
-        const tasksSheetData = await readFromSheet('Tasks!A:M');
+        const tasksSheetData = await readFromSheet('Tasks!A:K');
         const taskRows = tasksSheetData.values || [];
         const taskRow = taskRows.find(r => r[0] === taskId);
         if (taskRow) {
-          const isRecurring = taskRow[10] === 'TRUE';
+          const isRecurring = taskRow[8] === 'TRUE';
           const todayStr = new Date().toISOString().split('T')[0];
           if (isRecurring) {
-            const completedDates = (taskRow[12] || '').split(',').map(s => s.trim());
+            const completedDates = (taskRow[10] || '').split(',').map(s => s.trim());
             if (completedDates.includes(todayStr)) {
               return res.status(200).json({ success: true, message: 'Task already completed for today, skipped notification' });
             }
           } else {
-            if (taskRow[7] === 'TRUE') {
+            if (taskRow[5] === 'TRUE') {
               return res.status(200).json({ success: true, message: 'Task already completed, skipped notification' });
             }
           }

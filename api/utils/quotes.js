@@ -130,23 +130,21 @@ export const q4Quotes = [
   "Just hit delete. You'll feel better. 🔙"
 ];
 
-export function getQuoteForQuadrant(isUrgent, isImportant) {
-  let quotesArray = q4Quotes; // Default Q4
-  
-  if (isUrgent && isImportant) {
-    quotesArray = q1Quotes;
-  } else if (!isUrgent && isImportant) {
-    quotesArray = q2Quotes;
-  } else if (isUrgent && !isImportant) {
-    quotesArray = q3Quotes;
-  }
+const allMotivationalQuotes = [
+  ...q1Quotes,
+  ...q2Quotes,
+  ...q3Quotes
+];
 
-  return quotesArray[Math.floor(Math.random() * quotesArray.length)];
+export function getRandomQuote() {
+  return allMotivationalQuotes[Math.floor(Math.random() * allMotivationalQuotes.length)];
+}
+
+export function getQuoteForQuadrant(isUrgent, isImportant) {
+  return getRandomQuote();
 }
 
 export function getQuadrantString(isUrgent, isImportant) {
-  if (isUrgent && isImportant) return 'Q1';
-  if (!isUrgent && isImportant) return 'Q2';
-  if (isUrgent && !isImportant) return 'Q3';
-  return 'Q4';
+  return '';
 }
+

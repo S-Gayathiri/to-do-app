@@ -29,7 +29,7 @@ export const TaskProvider = ({ children }) => {
   const loadTasks = async () => {
     setLoading(true);
     try {
-      const data = await fetchSheetData('A:M');
+      const data = await fetchSheetData('A:K');
       setTasks(data || []);
     } catch (error) {
       console.error("Failed to fetch tasks from Google Sheets", error);
@@ -57,14 +57,12 @@ export const TaskProvider = ({ children }) => {
       setTasks(prev => [...prev, newTask]);
       scheduleTaskReminder(newTask); // Schedule reminder
 
-      await appendRow('A:M', [
+      await appendRow('A:K', [
         newTask.id,
         newTask.profile,
         newTask.title,
         newTask.task_date,
         newTask.time_block,
-        newTask.is_urgent,
-        newTask.is_important,
         newTask.is_completed,
         newTask.reminder_time || '',
         newTask.created_at,
@@ -93,21 +91,19 @@ export const TaskProvider = ({ children }) => {
         return t;
       }));
 
-      const data = await fetchSheetData('A:M');
+      const data = await fetchSheetData('A:K');
       const rowIndex = data.findIndex(row => row.id === id);
       
       if (rowIndex !== -1 && updatedTask) {
         scheduleTaskReminder(updatedTask); // Schedule reminder
         const sheetRow = rowIndex + 2;
         
-        await updateRow(`A${sheetRow}:M${sheetRow}`, [
+        await updateRow(`A${sheetRow}:K${sheetRow}`, [
           updatedTask.id,
           updatedTask.profile,
           updatedTask.title,
           updatedTask.task_date,
           updatedTask.time_block,
-          updatedTask.is_urgent,
-          updatedTask.is_important,
           updatedTask.is_completed,
           updatedTask.reminder_time || '',
           updatedTask.created_at || new Date().toISOString(),
@@ -226,7 +222,7 @@ export const TaskProvider = ({ children }) => {
     }).catch(err => console.error("Failed to delete QStash schedule:", err));
     
     try {
-      const data = await fetchSheetData('A:M');
+      const data = await fetchSheetData('A:K');
       const rowIndex = data.findIndex(row => row.id === id);
       if (rowIndex !== -1) {
         const sheetId = await getSheetId('Tasks');
@@ -257,7 +253,7 @@ export const TaskProvider = ({ children }) => {
       }));
 
       // Update in sheets
-      const data = await fetchSheetData('A:M');
+      const data = await fetchSheetData('A:K');
       
       for (const t of tasksToUpdate) {
         const rowIndex = data.findIndex(row => row.id === t.id);
@@ -265,14 +261,12 @@ export const TaskProvider = ({ children }) => {
           const sheetRow = rowIndex + 2;
           const taskToUpdate = { ...data[rowIndex], task_date: tomorrow };
           
-          await updateRow(`A${sheetRow}:M${sheetRow}`, [
+          await updateRow(`A${sheetRow}:K${sheetRow}`, [
             taskToUpdate.id,
             taskToUpdate.profile,
             taskToUpdate.title,
             taskToUpdate.task_date,
             taskToUpdate.time_block,
-            taskToUpdate.is_urgent,
-            taskToUpdate.is_important,
             taskToUpdate.is_completed,
             taskToUpdate.reminder_time || '',
             taskToUpdate.created_at || new Date().toISOString(),
