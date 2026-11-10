@@ -121,31 +121,55 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
+  const normalizeToYMD = (dStr) => {
+    if (!dStr) return '';
+    const s = String(dStr).trim();
+    if (s.includes('-')) {
+      const parts = s.split('-').map(Number);
+      if (parts.length >= 3) {
+        return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
+      }
+    }
+    if (s.includes('/')) {
+      const parts = s.split('/').map(Number);
+      if (parts.length >= 3) {
+        const y = parts[2] > 1000 ? parts[2] : (2000 + parts[2]);
+        if (parts[0] > 12) {
+          return `${y}-${String(parts[1]).padStart(2, '0')}-${String(parts[0]).padStart(2, '0')}`;
+        } else {
+          return `${y}-${String(parts[0]).padStart(2, '0')}-${String(parts[1]).padStart(2, '0')}`;
+        }
+      }
+    }
+    return s;
+  };
+
   const isTaskDueOnDate = (task, targetDate) => {
+    if (!task) return false;
     const dateStr = typeof targetDate === 'string' ? targetDate : format(targetDate, 'yyyy-MM-dd');
-    if (!task.is_recurring) {
-      return task.task_date === dateStr;
+    const taskStartStr = normalizeToYMD(task.task_date);
+    const isRecurring = task.is_recurring === true || String(task.is_recurring).trim().toLowerCase() === 'true';
+
+    if (!isRecurring) {
+      return taskStartStr === dateStr;
     }
 
     const pattern = (task.recurrence_pattern || '').trim().toLowerCase();
     if (!pattern) {
-      return task.task_date === dateStr;
+      return taskStartStr === dateStr;
     }
 
     const dateObj = typeof targetDate === 'string' 
-      ? (() => { const [y, m, d] = targetDate.split('-'); return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)); })()
+      ? (() => { const [y, m, d] = targetDate.split('-').map(Number); return new Date(y, m - 1, d); })()
       : targetDate;
 
     // Yearly / Birthday / Anniversary reminder
     if (pattern === 'yearly' || pattern === 'annual') {
-      const taskParts = (task.task_date || '').split('-').map(Number);
-      if (taskParts.length >= 3) {
-        const startYear = taskParts[0];
-        const startMonth = taskParts[1];
-        const startDay = taskParts[2];
+      if (taskStartStr) {
+        const [startYear, startMonth, startDay] = taskStartStr.split('-').map(Number);
+        const targetYear = dateObj.getFullYear();
         const targetMonth = dateObj.getMonth() + 1;
         const targetDay = dateObj.getDate();
-        const targetYear = dateObj.getFullYear();
 
         // Does not show if target date year is before the starting year
         if (targetYear < startYear) return false;
@@ -155,51 +179,67 @@ export const TaskProvider = ({ children }) => {
     }
 
     // Recurring task: must start on or before target date
-    if (task.task_date > dateStr) {
+    if (taskStartStr && taskStartStr > dateStr) {
       return false;
     }
 
-    const dayOfWeek = format(dateObj, 'EEE'); // 'Mon', 'Tue', etc.
-
+    // Daily
     if (pattern === 'daily') {
       return true;
     }
+
+    const dayOfWeek = format(dateObj, 'EEE').toLowerCase(); // 'mon', 'tue', etc.
+
+    // Weekly
     if (pattern === 'weekly') {
-      const [y, m, d] = task.task_date.split('-');
-      const taskStartDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-      return format(taskStartDate, 'EEE') === dayOfWeek;
-    }
-    if (pattern === 'monthly') {
-      const taskDay = parseInt(task.task_date.split('-')[2], 10);
-      return dateObj.getDate() === taskDay;
+      if (taskStartStr) {
+        const [y, m, d] = taskStartStr.split('-').map(Number);
+        const taskStartDate = new Date(y, m - 1, d);
+        return format(taskStartDate, 'EEE').toLowerCase() === dayOfWeek;
+      }
+      return false;
     }
 
-    // Comma-separated days: e.g. "Mon,Wed,Fri"
-    const days = pattern.split(',').map(s => s.trim());
+    // Monthly
+    if (pattern === 'monthly') {
+      if (taskStartStr) {
+        const [y, m, d] = taskStartStr.split('-').map(Number);
+        return dateObj.getDate() === d;
+      }
+      return dateObj.getDate() === 1;
+    }
+
+    // Comma-separated days: e.g. "Mon,Tue,Wed,Thu,Fri" or "Sat,Sun"
+    const days = pattern.split(',').map(s => s.trim().toLowerCase());
     return days.includes(dayOfWeek);
   };
 
   const isTaskCompletedOnDate = (task, targetDate) => {
     const dateStr = typeof targetDate === 'string' ? targetDate : format(targetDate, 'yyyy-MM-dd');
-    if (!task.is_recurring) {
+    const isRecurring = task.is_recurring === true || String(task.is_recurring).trim().toLowerCase() === 'true';
+    if (!isRecurring) {
       return Boolean(task.is_completed);
     }
-    const completedList = (task.completed_dates || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (completedList.includes(dateStr)) {
-      return true;
-    }
-    // Backwards compatibility: if base task_date matches and is_completed was true
-    if (task.task_date === dateStr && task.is_completed) {
-      return true;
-    }
-    return false;
+    const completedList = (task.completed_dates || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+    return completedList.includes(dateStr);
   };
 
   const getTasksForDate = (targetDate = selectedDate, profile = activeProfile) => {
     const dateStr = typeof targetDate === 'string' ? targetDate : format(targetDate, 'yyyy-MM-dd');
     return tasks
       .filter(t => {
-        if (profile && t.profile !== profile) return false;
+        const taskProfile = t.profile || 'PattuThangam';
+        if (profile && profile !== 'PattuThangam') {
+          // In personal view (e.g. Pattu), show Pattu's tasks AND shared tasks
+          if (taskProfile !== profile && taskProfile !== 'PattuThangam') {
+            return false;
+          }
+        } else if (profile === 'PattuThangam') {
+          // In shared view, only show shared tasks
+          if (taskProfile !== 'PattuThangam') {
+            return false;
+          }
+        }
         return isTaskDueOnDate(t, targetDate);
       })
       .map(t => ({
