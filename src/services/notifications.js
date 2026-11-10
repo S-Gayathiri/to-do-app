@@ -69,9 +69,32 @@ const subscribeToPush = async (identity) => {
 };
 
 export const scheduleTaskReminder = async (task) => {
-  if (!task.reminder_time) return;
+  if (!task) return;
+
+  // If reminder was removed or cleared, notify backend to remove any recurring schedule
+  if (!task.reminder_time) {
+    if (task.id) {
+      try {
+        await fetch('/api/schedule-reminder', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            taskId: task.id,
+            title: task.title || '',
+            reminder_time: '',
+          }),
+        });
+      } catch (err) {
+        console.error('Network error clearing reminder:', err);
+      }
+    }
+    return;
+  }
 
   const isRecurring = Boolean(task.is_recurring && task.recurrence_pattern);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
   let reminderTimeISO = null;
 
   if (task.task_date) {
@@ -95,6 +118,8 @@ export const scheduleTaskReminder = async (task) => {
         title: task.title,
         reminderTimeISO,
         reminder_time: task.reminder_time,
+        task_date: task.task_date,
+        timeZone,
         is_recurring: isRecurring,
         recurrence_pattern: task.recurrence_pattern || '',
         profile: task.profile,

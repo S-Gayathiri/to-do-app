@@ -32,6 +32,7 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200],
     requireInteraction: true,
     data: { taskId: data.taskId },
+    tag: data.taskId ? `task-${data.taskId}` : undefined,
     actions: actions
   };
 

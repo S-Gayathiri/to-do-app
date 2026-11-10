@@ -7,35 +7,44 @@ const qstashClient = new Client({
 
 const daysMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
 
-function getCronFromPattern(pattern, timeStr) {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  // Reference date: Oct 18, 2026 was Sunday
-  const baseSunday = new Date(2026, 9, 18, hours, minutes, 0);
+function getCronFromPattern(pattern, timeStr, timeZone = 'Asia/Kolkata', taskDate = null) {
+  const [hoursStr, minutesStr] = (timeStr || '09:00').split(':');
+  const hours = parseInt(hoursStr, 10);
+  const minutes = parseInt(minutesStr, 10);
+  const tz = timeZone || 'Asia/Kolkata';
 
-  if (pattern.toLowerCase() === 'daily') {
-    return `${baseSunday.getUTCMinutes()} ${baseSunday.getUTCHours()} * * *`;
+  const cleanPattern = (pattern || 'daily').trim().toLowerCase();
+
+  if (cleanPattern === 'daily') {
+    return `CRON_TZ=${tz} ${minutes} ${hours} * * *`;
   }
-  if (pattern.toLowerCase() === 'weekly') {
-    return `${baseSunday.getUTCMinutes()} ${baseSunday.getUTCHours()} * * ${baseSunday.getUTCDay()}`;
+
+  if (cleanPattern === 'weekly') {
+    let dayOfWeek = 0; // default Sunday
+    if (taskDate) {
+      const [y, m, d] = taskDate.split('-').map(Number);
+      dayOfWeek = new Date(y, m - 1, d).getDay();
+    }
+    return `CRON_TZ=${tz} ${minutes} ${hours} * * ${dayOfWeek}`;
   }
 
-  const days = pattern.split(',').map(s => s.trim());
-  const utcDays = [];
-  let utcH = baseSunday.getUTCHours();
-  let utcM = baseSunday.getUTCMinutes();
+  // Handle comma-separated days, e.g. "Mon,Tue,Wed,Thu,Fri" or "Sat,Sun"
+  const rawDays = pattern.split(',').map(s => s.trim());
+  const dayIndices = [];
 
-  for (const day of days) {
+  for (const day of rawDays) {
     const dayIndex = daysMap[day];
     if (dayIndex !== undefined) {
-      const localDate = new Date(2026, 9, 18 + dayIndex, hours, minutes, 0);
-      utcH = localDate.getUTCHours();
-      utcM = localDate.getUTCMinutes();
-      utcDays.push(localDate.getUTCDay());
+      dayIndices.push(dayIndex);
     }
   }
 
-  const sortedDays = [...new Set(utcDays)].sort().join(',');
-  return `${utcM} ${utcH} * * ${sortedDays}`;
+  if (dayIndices.length === 0 || dayIndices.length === 7) {
+    return `CRON_TZ=${tz} ${minutes} ${hours} * * *`;
+  }
+
+  const sortedDays = [...new Set(dayIndices)].sort((a, b) => a - b).join(',');
+  return `CRON_TZ=${tz} ${minutes} ${hours} * * ${sortedDays}`;
 }
 
 export default async function handler(req, res) {
@@ -49,6 +58,8 @@ export default async function handler(req, res) {
       title, 
       reminderTimeISO, 
       reminder_time, 
+      task_date,
+      timeZone,
       is_recurring, 
       recurrence_pattern, 
       profile, 
@@ -56,8 +67,11 @@ export default async function handler(req, res) {
       is_important 
     } = req.body;
 
-    if (!title) {
-      return res.status(400).json({ error: 'Missing title' });
+    const tz = timeZone || 'Asia/Kolkata';
+    const isRecurring = is_recurring === true || is_recurring === 'true' || is_recurring === 'TRUE';
+
+    if (!title && !taskId) {
+      return res.status(400).json({ error: 'Missing title or taskId' });
     }
 
     // Determine the base URL dynamically based on the incoming request
@@ -65,15 +79,23 @@ export default async function handler(req, res) {
     const host = req.headers.host;
     const targetUrl = `${protocol}://${host}/api/send-push`;
 
-    // 1. If recurring task with a reminder time: create recurring QStash schedule
-    if (is_recurring && recurrence_pattern && reminder_time) {
+    // Always delete any existing recurring QStash schedule for this task to avoid duplicates/orphaned schedules
+    if (taskId) {
       try {
         await qstashClient.schedules.delete(`task-${taskId}`);
       } catch (e) {
         // Ignore if schedule did not exist
       }
+    }
 
-      const cron = getCronFromPattern(recurrence_pattern, reminder_time);
+    // If reminder was cleared / no reminder time specified, stop here (schedule deleted above)
+    if (!reminder_time) {
+      return res.status(200).json({ success: true, message: 'No reminder time set, schedule cleared' });
+    }
+
+    // 1. If recurring task with a reminder time: create recurring QStash schedule
+    if (isRecurring && recurrence_pattern && reminder_time) {
+      const cron = getCronFromPattern(recurrence_pattern, reminder_time, tz, task_date);
       const scheduleResponse = await qstashClient.schedules.create({
         scheduleId: `task-${taskId}`,
         destination: targetUrl,
@@ -81,6 +103,11 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           taskId,
           title,
+          reminder_time,
+          task_date,
+          timeZone: tz,
+          is_recurring: true,
+          recurrence_pattern,
           message: "It's time to work on your task!",
           profile,
           is_urgent,
@@ -101,6 +128,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Reminder time must be in the future' });
     }
 
+    const targetDateStr = task_date || reminderTimeISO.split('T')[0];
+    const timeClean = reminder_time ? reminder_time.replace(/[^0-9]/g, '') : '';
+    const deduplicationId = `task-${taskId}-${targetDateStr}-${timeClean}`;
+
     const response = await qstashClient.publishJSON({
       url: targetUrl,
       body: {
@@ -109,9 +140,18 @@ export default async function handler(req, res) {
         message: "It's time to work on your task!",
         profile,
         is_urgent,
-        is_important
+        is_important,
+        reminder_time,
+        task_date: targetDateStr,
+        reminderTimeISO,
+        timeZone: tz,
+        is_recurring: false
       },
       notBefore: Math.floor(reminderTime.getTime() / 1000),
+      deduplicationId
+    });
+      notBefore: Math.floor(reminderTime.getTime() / 1000),
+      deduplicationId
     });
 
     return res.status(200).json({ success: true, messageId: response.messageId });

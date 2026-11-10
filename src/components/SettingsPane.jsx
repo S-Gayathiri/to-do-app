@@ -1,11 +1,13 @@
-import React from 'react';
-import { X, Bell, User, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Bell, User, Clock, RefreshCw } from 'lucide-react';
 import { useTasks } from '../contexts/TaskContext';
-import { requestNotificationPermission } from '../services/notifications';
+import { requestNotificationPermission, scheduleTaskReminder } from '../services/notifications';
 
 export default function SettingsPane({ isOpen, onClose }) {
-  const { identity, setIdentity, carryForwardTasks } = useTasks();
-  const [notificationsEnabled, setNotificationsEnabled] = React.useState(localStorage.getItem('notifications_enabled') === 'true');
+  const { identity, setIdentity, carryForwardTasks, tasks } = useTasks();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(localStorage.getItem('notifications_enabled') === 'true');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
 
   const handleIdentityChange = (id) => {
     setIdentity(id);
@@ -22,6 +24,28 @@ export default function SettingsPane({ isOpen, onClose }) {
         localStorage.setItem('notifications_enabled', false);
         alert('Notification permission denied. Please enable it in your browser settings.');
       }
+    }
+  };
+
+  const handleResyncReminders = async () => {
+    const recurringTasks = (tasks || []).filter(t => t.is_recurring && t.reminder_time);
+    if (recurringTasks.length === 0) {
+      setSyncStatus('No recurring tasks with reminders found.');
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncStatus(`Resyncing ${recurringTasks.length} recurring reminder(s)...`);
+    try {
+      for (const t of recurringTasks) {
+        await scheduleTaskReminder(t);
+      }
+      setSyncStatus(`Successfully resynced ${recurringTasks.length} reminder(s) to your timezone!`);
+    } catch (err) {
+      console.error('Failed to resync reminders:', err);
+      setSyncStatus('Failed to resync some reminders. Try again.');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -89,6 +113,21 @@ export default function SettingsPane({ isOpen, onClose }) {
             <p className="text-sm text-slate-500">
               Receive timely reminders for your scheduled tasks.
             </p>
+
+            <button
+              type="button"
+              onClick={handleResyncReminders}
+              disabled={isSyncing}
+              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={isSyncing ? "animate-spin text-brand-600" : "text-slate-500"} />
+              {isSyncing ? 'Resyncing Reminders...' : 'Resync Recurring Reminders'}
+            </button>
+            {syncStatus && (
+              <p className="text-xs text-brand-600 font-medium text-center">
+                {syncStatus}
+              </p>
+            )}
           </section>
 
 

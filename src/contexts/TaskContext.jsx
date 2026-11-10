@@ -274,6 +274,10 @@ export const TaskProvider = ({ children }) => {
             taskToUpdate.recurrence_pattern || '',
             taskToUpdate.completed_dates || ''
           ]);
+
+          if (taskToUpdate.reminder_time) {
+            scheduleTaskReminder(taskToUpdate);
+          }
         }
       }
     } catch (error) {
