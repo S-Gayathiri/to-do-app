@@ -126,13 +126,8 @@ export const TaskProvider = ({ children }) => {
     if (!task.is_recurring) {
       return task.task_date === dateStr;
     }
-    
-    // Recurring task: must start on or before target date
-    if (task.task_date > dateStr) {
-      return false;
-    }
 
-    const pattern = (task.recurrence_pattern || '').trim();
+    const pattern = (task.recurrence_pattern || '').trim().toLowerCase();
     if (!pattern) {
       return task.task_date === dateStr;
     }
@@ -140,17 +135,41 @@ export const TaskProvider = ({ children }) => {
     const dateObj = typeof targetDate === 'string' 
       ? (() => { const [y, m, d] = targetDate.split('-'); return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)); })()
       : targetDate;
+
+    // Yearly / Birthday / Anniversary reminder
+    if (pattern === 'yearly' || pattern === 'annual') {
+      const taskParts = (task.task_date || '').split('-').map(Number);
+      if (taskParts.length >= 3) {
+        const startYear = taskParts[0];
+        const startMonth = taskParts[1];
+        const startDay = taskParts[2];
+        const targetMonth = dateObj.getMonth() + 1;
+        const targetDay = dateObj.getDate();
+        const targetYear = dateObj.getFullYear();
+
+        // Does not show if target date year is before the starting year
+        if (targetYear < startYear) return false;
+        return targetMonth === startMonth && targetDay === startDay;
+      }
+      return false;
+    }
+
+    // Recurring task: must start on or before target date
+    if (task.task_date > dateStr) {
+      return false;
+    }
+
     const dayOfWeek = format(dateObj, 'EEE'); // 'Mon', 'Tue', etc.
 
-    if (pattern.toLowerCase() === 'daily') {
+    if (pattern === 'daily') {
       return true;
     }
-    if (pattern.toLowerCase() === 'weekly') {
+    if (pattern === 'weekly') {
       const [y, m, d] = task.task_date.split('-');
       const taskStartDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
       return format(taskStartDate, 'EEE') === dayOfWeek;
     }
-    if (pattern.toLowerCase() === 'monthly') {
+    if (pattern === 'monthly') {
       const taskDay = parseInt(task.task_date.split('-')[2], 10);
       return dateObj.getDate() === taskDay;
     }

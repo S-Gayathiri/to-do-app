@@ -19,6 +19,30 @@ function getCronFromPattern(pattern, timeStr, timeZone = 'Asia/Kolkata', taskDat
     return `CRON_TZ=${tz} ${minutes} ${hours} * * *`;
   }
 
+  if (cleanPattern === 'yearly' || cleanPattern === 'annual') {
+    let month = 1;
+    let day = 1;
+    if (taskDate) {
+      const parts = taskDate.split('-').map(Number);
+      if (parts.length >= 3) {
+        month = parts[1]; // 1-12
+        day = parts[2];   // 1-31
+      }
+    }
+    return `CRON_TZ=${tz} ${minutes} ${hours} ${day} ${month} *`;
+  }
+
+  if (cleanPattern === 'monthly') {
+    let day = 1;
+    if (taskDate) {
+      const parts = taskDate.split('-').map(Number);
+      if (parts.length >= 3) {
+        day = parts[2];
+      }
+    }
+    return `CRON_TZ=${tz} ${minutes} ${hours} ${day} * *`;
+  }
+
   if (cleanPattern === 'weekly') {
     let dayOfWeek = 0; // default Sunday
     if (taskDate) {
