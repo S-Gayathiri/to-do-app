@@ -41,6 +41,17 @@ self.addEventListener('push', (event) => {
   );
 });
 
+async function notifyClients(message) {
+  try {
+    const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of clientList) {
+      client.postMessage(message);
+    }
+  } catch (e) {
+    console.error('Error notifying clients:', e);
+  }
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   
@@ -55,6 +66,8 @@ self.addEventListener('notificationclick', (event) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId })
       })
+      .then(() => notifyClients({ type: 'TASK_UPDATED', action: 'mark_done', taskId }))
+      .catch(err => console.error('Error in mark_done action:', err))
     );
   } else if (action === 'delete_task' && taskId) {
     event.waitUntil(
@@ -63,6 +76,8 @@ self.addEventListener('notificationclick', (event) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId })
       })
+      .then(() => notifyClients({ type: 'TASK_UPDATED', action: 'delete_task', taskId }))
+      .catch(err => console.error('Error in delete_task action:', err))
     );
   } else if (action.startsWith('postpone') && taskId) {
     let minutesToAdd = 60; // default 1 hour
@@ -75,10 +90,12 @@ self.addEventListener('notificationclick', (event) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, minutesToAdd })
       })
+      .then(() => notifyClients({ type: 'TASK_UPDATED', action: 'postpone', taskId }))
+      .catch(err => console.error('Error in postpone action:', err))
     );
   } else {
     event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
         if (clientList.length > 0) {
           let client = clientList[0];
           for (let i = 0; i < clientList.length; i++) {
@@ -88,7 +105,7 @@ self.addEventListener('notificationclick', (event) => {
           }
           return client.focus();
         }
-        return clients.openWindow('/');
+        return self.clients.openWindow('/');
       })
     );
   }

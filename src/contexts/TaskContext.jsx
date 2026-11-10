@@ -41,6 +41,49 @@ export const TaskProvider = ({ children }) => {
 
   useEffect(() => {
     loadTasks();
+
+    // Listen for Service Worker background updates (e.g. notification clicks)
+    if ('serviceWorker' in navigator) {
+      const handleSwMessage = (event) => {
+        if (event.data && event.data.type === 'TASK_UPDATED') {
+          const { action, taskId } = event.data;
+          if (action === 'mark_done' && taskId) {
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            setTasks(prev => prev.map(t => {
+              if (t.id === taskId) {
+                const isRec = t.is_recurring === true || String(t.is_recurring).trim().toLowerCase() === 'true';
+                if (isRec) {
+                  const list = (t.completed_dates || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+                  if (!list.includes(todayStr)) list.push(todayStr);
+                  return { ...t, completed_dates: list.join(',') };
+                } else {
+                  return { ...t, is_completed: true };
+                }
+              }
+              return t;
+            }));
+          }
+          // Fetch freshest data from Google Sheets in background
+          loadTasks();
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+
+      // Auto-reload on window focus or tab visibility change
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          loadTasks();
+        }
+      };
+      window.addEventListener('focus', handleVisibilityChange);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+        window.removeEventListener('focus', handleVisibilityChange);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
   }, []);
 
   const addTask = async (taskData) => {
