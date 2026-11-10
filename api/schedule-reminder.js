@@ -77,6 +77,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {}
+    }
+
     const { 
       taskId, 
       title, 
@@ -89,7 +96,7 @@ export default async function handler(req, res) {
       profile, 
       is_urgent, 
       is_important 
-    } = req.body;
+    } = body || {};
 
     const tz = timeZone || 'Asia/Kolkata';
     const isRecurring = is_recurring === true || is_recurring === 'true' || is_recurring === 'TRUE';
@@ -98,9 +105,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing title or taskId' });
     }
 
-    // Determine the base URL dynamically based on the incoming request
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    // Determine the base URL dynamically based on the incoming request (default to https on production)
     const host = req.headers.host;
+    const isLocal = host && (host.includes('localhost') || host.includes('127.0.0.1'));
+    const protocol = isLocal ? 'http' : (req.headers['x-forwarded-proto'] || 'https');
     const targetUrl = `${protocol}://${host}/api/send-push`;
 
     // Always delete any existing recurring QStash schedule for this task to avoid duplicates/orphaned schedules
@@ -124,6 +132,9 @@ export default async function handler(req, res) {
         scheduleId: `task-${taskId}`,
         destination: targetUrl,
         cron,
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           taskId,
           title,
@@ -139,6 +150,7 @@ export default async function handler(req, res) {
         })
       });
 
+      console.log(`Created recurring schedule task-${taskId}: cron=${cron}, target=${targetUrl}`);
       return res.status(200).json({ success: true, scheduleId: scheduleResponse.scheduleId, cron });
     }
 
@@ -153,8 +165,6 @@ export default async function handler(req, res) {
     }
 
     const targetDateStr = task_date || reminderTimeISO.split('T')[0];
-    const timeClean = reminder_time ? reminder_time.replace(/[^0-9]/g, '') : '';
-    const deduplicationId = `task-${taskId}-${targetDateStr}-${timeClean}`;
 
     const response = await qstashClient.publishJSON({
       url: targetUrl,
@@ -171,13 +181,10 @@ export default async function handler(req, res) {
         timeZone: tz,
         is_recurring: false
       },
-      notBefore: Math.floor(reminderTime.getTime() / 1000),
-      deduplicationId
-    });
-      notBefore: Math.floor(reminderTime.getTime() / 1000),
-      deduplicationId
+      notBefore: Math.floor(reminderTime.getTime() / 1000)
     });
 
+    console.log(`Published one-off reminder task-${taskId} for ${reminderTimeISO} (messageId: ${response.messageId})`);
     return res.status(200).json({ success: true, messageId: response.messageId });
   } catch (error) {
     console.error('QStash scheduling error:', error);

@@ -6,7 +6,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { subscription, identity } = req.body;
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {}
+    }
+    const { subscription, identity } = body || {};
     
     if (!subscription || !subscription.endpoint) {
       return res.status(400).json({ error: 'Invalid subscription object' });

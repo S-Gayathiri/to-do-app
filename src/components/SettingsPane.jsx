@@ -8,6 +8,26 @@ export default function SettingsPane({ isOpen, onClose }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(localStorage.getItem('notifications_enabled') === 'true');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
+  const [isTestingPush, setIsTestingPush] = useState(false);
+  const [testPushStatus, setTestPushStatus] = useState('');
+
+  const handleTestNotification = async () => {
+    setIsTestingPush(true);
+    setTestPushStatus('Sending test notification...');
+    try {
+      const res = await fetch('/api/test-push');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestPushStatus(data.message || '✅ Test push sent! Check your notification bar.');
+      } else {
+        setTestPushStatus(`❌ ${data.message || 'Failed to send test push.'}`);
+      }
+    } catch (err) {
+      setTestPushStatus(`❌ Error: ${err.message}`);
+    } finally {
+      setIsTestingPush(false);
+    }
+  };
 
   const handleIdentityChange = (id) => {
     setIdentity(id);
@@ -114,20 +134,37 @@ export default function SettingsPane({ isOpen, onClose }) {
               Receive timely reminders for your scheduled tasks.
             </p>
 
-            <button
-              type="button"
-              onClick={handleResyncReminders}
-              disabled={isSyncing}
-              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={isSyncing ? "animate-spin text-brand-600" : "text-slate-500"} />
-              {isSyncing ? 'Resyncing Reminders...' : 'Resync Recurring Reminders'}
-            </button>
-            {syncStatus && (
-              <p className="text-xs text-brand-600 font-medium text-center">
-                {syncStatus}
-              </p>
-            )}
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleTestNotification}
+                disabled={isTestingPush}
+                className="w-full py-2.5 px-4 rounded-xl border border-brand-200 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <Bell size={14} className={isTestingPush ? "animate-bounce" : ""} />
+                {isTestingPush ? 'Sending Test Push...' : 'Send Test Notification Now'}
+              </button>
+              {testPushStatus && (
+                <p className="text-[11px] font-medium text-center text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  {testPushStatus}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={handleResyncReminders}
+                disabled={isSyncing}
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={isSyncing ? "animate-spin text-brand-600" : "text-slate-500"} />
+                {isSyncing ? 'Resyncing Reminders...' : 'Resync Recurring Reminders'}
+              </button>
+              {syncStatus && (
+                <p className="text-xs text-brand-600 font-medium text-center">
+                  {syncStatus}
+                </p>
+              )}
+            </div>
           </section>
 
 

@@ -97,14 +97,44 @@ export const scheduleTaskReminder = async (task) => {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
   let reminderTimeISO = null;
 
-  if (task.task_date) {
-    const [year, month, day] = task.task_date.split('-');
-    const [hours, minutes] = task.reminder_time.split(':');
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes), 0);
-    
-    // For non-recurring tasks, don't schedule if it has already passed
-    if (!isRecurring && date.getTime() < Date.now()) return;
-    reminderTimeISO = date.toISOString();
+  if (task.task_date && task.reminder_time) {
+    let year, month, day;
+    const dateStr = String(task.task_date).trim();
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('-').map(Number);
+      if (parts.length >= 3) {
+        year = parts[0];
+        month = parts[1];
+        day = parts[2];
+      }
+    } else if (dateStr.includes('/')) {
+      const parts = dateStr.split('/').map(Number);
+      if (parts.length >= 3) {
+        year = parts[2];
+        if (parts[0] > 12) {
+          day = parts[0];
+          month = parts[1];
+        } else {
+          day = parts[0];
+          month = parts[1];
+        }
+      }
+    }
+
+    const timeClean = String(task.reminder_time).replace(/[^\d:]/g, '');
+    const [hours, minutes] = timeClean.split(':').map(Number);
+
+    if (year && month && day && !isNaN(hours) && !isNaN(minutes)) {
+      const date = new Date(year, month - 1, day, hours, minutes, 0);
+      if (!isNaN(date.getTime())) {
+        // For non-recurring tasks, don't schedule if it has already passed
+        if (!isRecurring && date.getTime() < Date.now()) {
+          console.log(`Reminder time ${date.toLocaleString()} is in the past, skipping schedule.`);
+          return;
+        }
+        reminderTimeISO = date.toISOString();
+      }
+    }
   }
 
   try {
@@ -129,7 +159,8 @@ export const scheduleTaskReminder = async (task) => {
     });
     
     if (!response.ok) {
-      console.error('Failed to schedule reminder on backend');
+      const errText = await response.text();
+      console.error('Failed to schedule reminder on backend:', response.status, errText);
     }
   } catch (err) {
     console.error('Network error scheduling reminder:', err);
