@@ -33,6 +33,7 @@ export default async function handler(req, res) {
 
   let title = initialTitle;
   let profile = initialProfile;
+  let isYearlyTask = false;
 
   const randomQuote = getQuoteForQuadrant(is_urgent, is_important);
   const quadrant = getQuadrantString(is_urgent, is_important);
@@ -130,6 +131,9 @@ export default async function handler(req, res) {
         // Use the freshest title and profile from the sheet
         if (taskRow[2]) title = taskRow[2];
         if (taskRow[1]) profile = taskRow[1];
+        if (taskRow[9]) {
+          isYearlyTask = taskRow[9].toLowerCase().includes('yearly') || taskRow[9].toLowerCase().includes('annual');
+        }
 
       } catch (err) {
         console.error('Error verifying task in send-push:', err);
@@ -185,7 +189,9 @@ export default async function handler(req, res) {
     // 3. Send notification to all subscriptions
     const payload = JSON.stringify({
       title: title || 'Task Reminder',
-      body: `${profile && profile !== 'PattuThangam' ? `[${profile}] ` : ''}${randomQuote}`,
+      body: isYearlyTask 
+        ? `🎉 Anniversary / Birthday Reminder! Celebrate ${title} today!` 
+        : `${profile && profile !== 'PattuThangam' ? `[${profile}] ` : ''}${randomQuote}`,
       url: '/',
       taskId,
       quadrant

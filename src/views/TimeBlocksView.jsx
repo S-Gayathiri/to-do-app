@@ -74,8 +74,16 @@ function TaskCard({ task, onToggle, onDelete, onEdit }) {
         </p>
         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
           {task.is_recurring && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 border border-purple-200/60 px-2 py-0.5 rounded-full">
-              <Repeat size={10} /> {task.recurrence_pattern === 'daily' ? 'Daily' : task.recurrence_pattern}
+            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+              (task.recurrence_pattern || '').toLowerCase() === 'yearly'
+                ? 'text-pink-700 bg-pink-50 border border-pink-200/70'
+                : 'text-purple-700 bg-purple-50 border border-purple-200/60'
+            }`}>
+              {(task.recurrence_pattern || '').toLowerCase() === 'yearly' ? (
+                <>🎂 Yearly</>
+              ) : (
+                <><Repeat size={10} /> {task.recurrence_pattern === 'daily' ? 'Daily' : task.recurrence_pattern}</>
+              )}
             </span>
           )}
           {task.reminder_time && (

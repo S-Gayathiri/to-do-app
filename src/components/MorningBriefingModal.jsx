@@ -62,7 +62,12 @@ export default function MorningBriefingModal({ isOpen, onClose }) {
                     </span>
                   </div>
                   {task.reminder_time && (
-                    <div className="mt-2 ml-7 text-xs font-semibold text-brand-600 flex items-center gap-1">
+                    <div className="mt-2 ml-7 text-xs font-semibold text-brand-600 flex items-center gap-1.5 flex-wrap">
+                      {(task.recurrence_pattern || '').toLowerCase() === 'yearly' && (
+                        <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded text-[11px] font-bold">
+                          🎂 Birthday / Anniversary
+                        </span>
+                      )}
                       <span className="bg-brand-100 px-2 py-0.5 rounded text-brand-700">
                         {task.reminder_time}
                       </span>
